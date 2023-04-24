@@ -1,0 +1,24 @@
+{
+    "version": "2.0.0",
+    "tasks": [ 
+      {
+        "label": "OTA Upload",
+        "type": "shell",
+        "command": "python3",
+        "args": [
+          "/home/roger/.arduino15/packages/esp8266/hardware/esp8266/3.1.2/tools/espota.py",
+          "-d",
+          "-r",
+          "-i",
+          "192.168.0.30",
+          "-p",
+          "8266",
+          "-a",
+          "1csqBgpHchquXkzQlgl4",
+          "-f",
+          "${workspaceFolder}/build/${workspaceFolderBasename}.ino.bin"
+        ],
+        "problemMatcher": []
+        }
+    ]
+  }
