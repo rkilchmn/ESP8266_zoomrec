@@ -65,6 +65,7 @@
 // #define DEEP_SLEEP_SECONDS  300       // Define for sleep period between process repeats. No sleep if not defined
 #define JSON_CONFIG_OTA                   // upload JSON config via OTA providing REST API
 // #define GDB_DEBUG                    // enable debugging using GDB using serial 
+#define NTP                             // enable NTP
 
 #define FAST_CONNECTION_TIMEOUT 10000 // timeout for initial connection atempt 
 
@@ -240,6 +241,33 @@ void timeout_cb() {
     }
   }
 #endif
+
+#ifdef NTP 
+  // from https://werner.rothschopf.net/202011_arduino_esp8266_ntp_en.htm
+  #define NTP_SERVER "pool.ntp.org"        
+  // Timezone definition https://github.com/nayarsystems/posix_tz_db/blob/master/zones.csv   
+  #define NTP_TIMEZONE "UTC0" 
+
+  #include <coredecls.h> // optional callback to check on server
+
+  void time_is_set(bool from_sntp /* <= this optional parameter can be used with ESP8266 Core 3.0.0*/) {
+    Serial.print(F("time was sent! from_sntp=")); Serial.println(from_sntp);
+    time_t now = time(nullptr);
+    Serial.println(ctime(&now));
+  }
+
+  uint32_t sntp_startup_delay_MS_rfc_not_less_than_60000 ()
+  {
+    randomSeed(A0);
+    return random(5000);
+  }
+
+  uint32_t sntp_update_delay_MS_rfc_not_less_than_15000 ()
+  {
+    return 12 * 60 * 60 * 1000UL; // 12 hours
+  }
+#endif
+
 
 // Put any project specific initialisation here
 
@@ -432,7 +460,16 @@ void setup() {
     printJSON(config);
 #endif
 
-  // Put your initialisation code here
+#ifdef NTP
+  settimeofday_cb(time_is_set); // optional: callback if time was sent
+  configTime( NTP_TIMEZONE, NTP_SERVER);
+  // if (!config.isNull() && config.containsKey("timezone")) 
+  //   configTime( config["timezone"], NTP_SERVER);
+  // else
+  //   configTime( NTP_TIMEZONE, NTP_SERVER);
+#endif
+
+// Put your initialisation code here
 
 
 
