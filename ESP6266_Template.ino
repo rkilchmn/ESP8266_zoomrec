@@ -64,7 +64,7 @@
 #define LED_STATUS_FLASH              // Enable flashing LED status
 // #define DEEP_SLEEP_SECONDS  300       // Define for sleep period between process repeats. No sleep if not defined
 #define JSON_CONFIG_OTA                   // upload JSON config via OTA providing REST API
-// #define GDB_DEBUG                    // enable debugging using GDB using serial 
+#define GDB_DEBUG                    // enable debugging using GDB using serial 
 #define NTP                             // enable NTP
 
 #define FAST_CONNECTION_TIMEOUT 10000 // timeout for initial connection atempt 
@@ -114,7 +114,10 @@
   #include <ESP8266WebServer.h>  
   #include <ArduinoJson.h>
 
-  #define MAX_JSON_SIZE 1024
+  #define JSON_CONFIG_MAXSIZE 4096 // initial size to allocate, resized later what is required
+
+  DynamicJsonDocument config(0); // will be resized when rwad from file
+
   #define JSON_CONFIG_USERNAME "admin"
   #define JSON_CONFIG_PASSWD   "1csqBgpHchquXkzQlgl4"
   #define JSON_CONFIG_OTA_ROUTE "/config"
@@ -188,8 +191,9 @@ void timeout_cb() {
       // Only accept JSON content type
       if (server.hasHeader("Content-Type") && server.header("Content-Type") == "application/json") {
         // Parse JSON payload
-        DynamicJsonDocument doc(MAX_JSON_SIZE);
+        DynamicJsonDocument doc(JSON_CONFIG_MAXSIZE);
         deserializeJson(doc, server.arg("plain"));
+        doc.shrinkToFit();
 
         // Store JSON payload in SPIFFS
         File configFile = SPIFFS.open( JSON_CONFIG_OTA_FILE, "w");
@@ -214,21 +218,21 @@ void timeout_cb() {
 #endif
 
 #ifdef JSON_CONFIG_OTA 
-  bool retrieveJSON(DynamicJsonDocument& doc, String filename) {
+  // return true on success
+  bool retrieveJSON( DynamicJsonDocument& doc, String filename) {
     // read the JSON file from SPIFFS
     File file = SPIFFS.open(filename, "r");
     if (!file) {
       return false;
     }
-    
+
+    doc = DynamicJsonDocument(JSON_CONFIG_MAXSIZE);
     // parse the JSON file into the JSON object
     DeserializationError error = deserializeJson(doc, file);
-    if (error) {
-      return false;
-    }
-    
+    doc.shrinkToFit();
     file.close();
-    return true;
+
+    return !error;
   }
 
   void printJSON(DynamicJsonDocument& doc) {
@@ -452,21 +456,18 @@ void setup() {
   server.begin();
 #endif
 
-
 #ifdef JSON_CONFIG_OTA
-  // show config
-  DynamicJsonDocument config(MAX_JSON_SIZE);
-  if (retrieveJSON(config, JSON_CONFIG_OTA_FILE)) 
+  if (retrieveJSON( config, JSON_CONFIG_OTA_FILE)) 
     printJSON(config);
 #endif
 
 #ifdef NTP
   settimeofday_cb(time_is_set); // optional: callback if time was sent
   configTime( NTP_TIMEZONE, NTP_SERVER);
-  // if (!config.isNull() && config.containsKey("timezone")) 
-  //   configTime( config["timezone"], NTP_SERVER);
-  // else
-  //   configTime( NTP_TIMEZONE, NTP_SERVER);
+  if (!config.isNull() && config.containsKey("timezone")) 
+    configTime( config["timezone"], NTP_SERVER);
+  else
+    configTime( NTP_TIMEZONE, NTP_SERVER);
 #endif
 
 // Put your initialisation code here
@@ -486,6 +487,14 @@ void loop() {
   watchdog.once(WATCHDOG_LOOP_SECONDS, &timeout_cb);
 
   // put your main code here, to run repeatedly:
+  
+
+
+  Serial.print(" | Free heap: ");
+  Serial.print(ESP.getFreeHeap());
+  Serial.print(" | Max Free Block: ");
+  Serial.println(ESP.getMaxFreeBlockSize());
+
   delay(10000);
 
   watchdog.detach();
