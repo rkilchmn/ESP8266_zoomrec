@@ -58,7 +58,7 @@
 
 // Optional functionality. Comment out defines to disable feature
 #define WIFI_PORTAL                   // Enable WiFi config portal
-#define WPS_CONFIG                    // press WPS bytton on wifi router
+#define WPS_CONFIG                    // press WPS bytton on wifi pathr
 #define ARDUINO_OTA                   // Enable Arduino IDE OTA updates
 // #define HTTP_OTA                      // Enable OTA updates from http server
 #define LED_STATUS_FLASH              // Enable flashing LED status
@@ -66,6 +66,8 @@
 #define JSON_CONFIG_OTA                   // upload JSON config via OTA providing REST API
 #define GDB_DEBUG                    // enable debugging using GDB using serial 
 #define NTP                             // enable NTP
+#define HTTPS_REST_CLIENT            // provide HTTPS REST client
+
 
 #define FAST_CONNECTION_TIMEOUT 10000 // timeout for initial connection atempt 
 
@@ -118,9 +120,20 @@
 
   DynamicJsonDocument config(0); // will be resized when rwad from file
 
+  /* sample config.json file to upload
+  curl -v  -X POST  -H "Content-Type: application/json" -u admin:mypassword --data @config.json http://192.168.0.30/config
+  {
+    "http_username": "testuser",
+    "http_password": "test123",
+    "hostname": "dog.ceo",
+    "port": 443,
+    "timezone" : "AEST-10AEDT,M10.1.0,M4.1.0/3"
+  }
+  */
+
   #define JSON_CONFIG_USERNAME "admin"
   #define JSON_CONFIG_PASSWD   "1csqBgpHchquXkzQlgl4"
-  #define JSON_CONFIG_OTA_ROUTE "/config"
+  #define JSON_CONFIG_OTA_path "/config"
   #define JSON_CONFIG_OTA_PORT 80
   #define JSON_CONFIG_OTA_FILE "/config.json"
 #endif
@@ -235,15 +248,6 @@ void timeout_cb() {
     return !error;
   }
 
-  void printJSON(DynamicJsonDocument& doc) {
-    // Print each value in the JSON document
-    for (JsonPair pair : doc.as<JsonObject>()) {
-      Serial.print(pair.key().c_str());
-      Serial.print("=");
-      serializeJson(pair.value(), Serial);
-      Serial.println();
-    }
-  }
 #endif
 
 #ifdef NTP 
@@ -270,6 +274,75 @@ void timeout_cb() {
   {
     return 12 * 60 * 60 * 1000UL; // 12 hours
   }
+#endif
+
+#ifdef HTTPS_REST_CLIENT
+  #include <ESP8266HTTPClient.h>
+  #include <WiFiClientSecure.h>
+  #include <ArduinoJson.h>
+
+  // Define a function to send an HTTPS request with basic authentication
+  DynamicJsonDocument performHttpsRequest(const char* method, const char* hostname, int port, const char* path, 
+    const char* http_username, const char* http_password, const char* tls_fingerprint, size_t response_capacity = 1024, 
+    DynamicJsonDocument* requestBody = nullptr ) {
+
+    // Initialize the WiFi client with SSL/TLS support
+    WiFiClientSecure client;
+    if (strlen( tls_fingerprint) > 0)
+      client.setFingerprint(tls_fingerprint);
+    else
+      client.setInsecure();
+
+    // Initialize the HTTP client with the WiFi client and server/port
+    HTTPClient http;
+    http.begin(client, String(hostname), port, String(path), true);
+
+    // Set the HTTP request headers with the basic authentication credentials
+    String auth = String(http_username) + ":" + String(http_password);
+    String encodedAuth = base64::encode(auth);
+    http.setAuthorization(encodedAuth);
+
+    // Send the HTTP request to the API endpoint
+    int httpCode;
+    if (String(method) == "GET") {
+      httpCode = http.GET();
+    } else if (String(method) == "POST") {
+      // Serialize the JSON request body into a string
+      String requestBodyStr;
+      serializeJson(*requestBody, requestBodyStr);
+
+      // Set the HTTP request headers for a JSON POST request
+      http.addHeader("Content-Type", "application/json");
+      http.addHeader("Content-Length", String(requestBodyStr.length()));
+
+      // Send the HTTP POST request with the JSON request body
+      httpCode = http.POST(requestBodyStr);
+    } else {
+      // Invalid HTTP method
+      httpCode = -1;
+    }
+
+    DynamicJsonDocument response(response_capacity);
+
+    if (httpCode == HTTP_CODE_OK) {
+      // Read the response JSON data into a DynamicJsonDocument
+      DeserializationError error = deserializeJson(response, http.getString());
+
+      if (error) {
+        Serial.print("Failed to parse response JSON: ");
+        Serial.println(error.c_str());
+      }
+    } else {
+      Serial.print("HTTP error code: ");
+      Serial.println(httpCode);
+    }
+
+    // Release the resources used by the HTTP client
+    http.end();
+
+    return response;
+  }
+
 #endif
 
 
@@ -444,7 +517,7 @@ void setup() {
   }
 
   // Handle HTTP POST request for config
-  server.on( JSON_CONFIG_OTA_ROUTE, handleConfig);
+  server.on( JSON_CONFIG_OTA_path, handleConfig);
 
   // list of headers to be parsed
   const char * headerkeys[] = {"Content-Type"} ;
@@ -458,7 +531,7 @@ void setup() {
 
 #ifdef JSON_CONFIG_OTA
   if (retrieveJSON( config, JSON_CONFIG_OTA_FILE)) 
-    printJSON(config);
+    serializeJsonPretty(config, Serial);
 #endif
 
 #ifdef NTP
@@ -487,12 +560,21 @@ void loop() {
   watchdog.once(WATCHDOG_LOOP_SECONDS, &timeout_cb);
 
   // put your main code here, to run repeatedly:
-  
 
 
-  Serial.print(" | Free heap: ");
+#ifdef HTTPS_REST_CLIENT  
+  // test http client 
+  if (!config.isNull() && config.containsKey("hostname")) {
+    DynamicJsonDocument response = performHttpsRequest( "GET", config["hostname"], config["port"],
+      "/api/breeds/image/random" , config["http_username"], config["http_username"], "");
+    serializeJsonPretty(response, Serial);
+  }
+#endif
+
+
+  Serial.print("Free heap: ");
   Serial.print(ESP.getFreeHeap());
-  Serial.print(" | Max Free Block: ");
+  Serial.print(" Max Free Block: ");
   Serial.println(ESP.getMaxFreeBlockSize());
 
   delay(10000);

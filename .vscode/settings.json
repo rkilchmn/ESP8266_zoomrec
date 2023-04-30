@@ -1,3 +1,14 @@
 {
-    "arduino.defaultBaudRate": 115200
+    "arduino.defaultBaudRate": 115200,
+    "files.associations": {
+        "string": "cpp",
+        "array": "cpp",
+        "deque": "cpp",
+        "list": "cpp",
+        "unordered_map": "cpp",
+        "vector": "cpp",
+        "string_view": "cpp",
+        "initializer_list": "cpp",
+        "ranges": "cpp"
+    }
 }
