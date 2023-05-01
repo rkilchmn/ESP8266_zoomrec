@@ -65,7 +65,7 @@
 // #define DEEP_SLEEP_SECONDS  300       // Define for sleep period between process repeats. No sleep if not defined
 #define JSON_CONFIG_OTA                   // upload JSON config via OTA providing REST API
 #define GDB_DEBUG                    // enable debugging using GDB using serial 
-#define NTP                             // enable NTP
+#define USE_NTP                       // enable NTP
 #define HTTPS_REST_CLIENT            // provide HTTPS REST client
 
 
@@ -250,7 +250,7 @@ void timeout_cb() {
 
 #endif
 
-#ifdef NTP 
+#ifdef USE_NTP 
   // from https://werner.rothschopf.net/202011_arduino_esp8266_ntp_en.htm
   #define NTP_SERVER "pool.ntp.org"        
   // Timezone definition https://github.com/nayarsystems/posix_tz_db/blob/master/zones.csv   
@@ -541,7 +541,7 @@ void setup() {
     
 #endif
 
-#ifdef NTP
+#ifdef USE_NTP
   settimeofday_cb(time_is_set); // optional: callback if time was sent
   configTime( NTP_TIMEZONE, NTP_SERVER);
   if (!config.isNull() && config.containsKey("timezone")) 
@@ -581,7 +581,7 @@ void loop() {
   }
 #endif
 
-#ifdef NTP
+#ifdef USE_NTP
   if (ntp_set) {
     // ISO 8601 timestamp
     String timestampStr = "2023-05-01T14:30:00+02:00";
