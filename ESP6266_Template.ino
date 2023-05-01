@@ -232,7 +232,7 @@ void timeout_cb() {
 
 #ifdef JSON_CONFIG_OTA 
   // return true on success
-  bool retrieveJSON( DynamicJsonDocument& doc, String filename) {
+  boolean retrieveJSON( DynamicJsonDocument& doc, String filename) {
     // read the JSON file from SPIFFS
     File file = SPIFFS.open(filename, "r");
     if (!file) {
@@ -258,7 +258,11 @@ void timeout_cb() {
 
   #include <coredecls.h> // optional callback to check on server
 
-  void time_is_set(bool from_sntp /* <= this optional parameter can be used with ESP8266 Core 3.0.0*/) {
+  boolean ntp_set = false; // has ntp time been set
+
+  void time_is_set(boolean from_sntp /* <= this optional parameter can be used with ESP8266 Core 3.0.0*/) {
+    ntp_set = true;
+
     Serial.print(F("time was sent! from_sntp=")); Serial.println(from_sntp);
     time_t now = time(nullptr);
     Serial.println(ctime(&now));
@@ -530,8 +534,11 @@ void setup() {
 #endif
 
 #ifdef JSON_CONFIG_OTA
-  if (retrieveJSON( config, JSON_CONFIG_OTA_FILE)) 
+  if (retrieveJSON( config, JSON_CONFIG_OTA_FILE)) {
     serializeJsonPretty(config, Serial);
+    Serial.println();
+  }
+    
 #endif
 
 #ifdef NTP
@@ -565,16 +572,45 @@ void loop() {
 #ifdef HTTPS_REST_CLIENT  
   // test http client 
   if (!config.isNull() && config.containsKey("hostname")) {
+    // call API
     DynamicJsonDocument response = performHttpsRequest( "GET", config["hostname"], config["port"],
       "/api/breeds/image/random" , config["http_username"], config["http_username"], "");
+
     serializeJsonPretty(response, Serial);
+    Serial.println();
+  }
+#endif
+
+#ifdef NTP
+  if (ntp_set) {
+    // ISO 8601 timestamp
+    String timestampStr = "2023-05-01T14:30:00+02:00";
+    // Get current UTC time
+    time_t now = time(nullptr);
+    struct tm* tmNow = gmtime(&now);
+
+    // Get current local time
+    time_t localNow = mktime(tmNow);
+    struct tm* tmLocal = localtime(&localNow);
+
+    // Calculate time zone offset in seconds
+    int timeZone = (tmLocal->tm_hour - tmNow->tm_hour) * 3600 + (tmLocal->tm_min - tmNow->tm_min) * 60;
+
+    // Parse ISO 8601 timestamp and convert to local time
+    Serial.println("ISO 8601 timestamp: " + timestampStr);
+    struct tm tmTimestamp;
+    strptime(timestampStr.c_str(), "%Y-%m-%dT%H:%M:%S%z", &tmTimestamp);
+    time_t utcTime = mktime(&tmTimestamp);
+    time_t localTime = utcTime + timeZone; // add timezone offset
+    Serial.print("Local time: ");
+    Serial.println(asctime(localtime(&localTime)));
   }
 #endif
 
 
   Serial.print("Free heap: ");
   Serial.print(ESP.getFreeHeap());
-  Serial.print(" Max Free Block: ");
+  Serial.print("Max Free Block: ");
   Serial.println(ESP.getMaxFreeBlockSize());
 
   delay(10000);
