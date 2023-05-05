@@ -55,6 +55,9 @@
   */
 
 #include <Arduino.h>
+#include "Stream.h"
+
+Stream& console = nullptr;
 
 // Optional functionality. Comment out defines to disable feature
 #define WIFI_PORTAL                   // Enable WiFi config portal
@@ -67,6 +70,7 @@
 #define GDB_DEBUG                    // enable debugging using GDB using serial 
 #define USE_NTP                       // enable NTP
 #define HTTPS_REST_CLIENT            // provide HTTPS REST client
+#define TELNET                       // use telnet
 
 
 #define FAST_CONNECTION_TIMEOUT 10000 // timeout for initial connection atempt 
@@ -251,12 +255,14 @@ void timeout_cb() {
 #endif
 
 #ifdef USE_NTP 
+  #include <TZ.h>
+  #include <coredecls.h> // optional callback to check on server
+
   // from https://werner.rothschopf.net/202011_arduino_esp8266_ntp_en.htm
   #define NTP_SERVER "pool.ntp.org"        
   // Timezone definition https://github.com/nayarsystems/posix_tz_db/blob/master/zones.csv   
-  #define NTP_TIMEZONE "UTC0" 
-
-  #include <coredecls.h> // optional callback to check on server
+ 
+  #define NTP_DEFAULT_TIME_ZONE TZ_Europe_London
 
   boolean ntp_set = false; // has ntp time been set
 
@@ -347,6 +353,20 @@ void timeout_cb() {
     return response;
   }
 
+#endif
+
+#ifdef TELNET
+  #include <TelnetStream.h>
+
+  void telnet_log() {
+    time_t localTime = time(nullptr); // get the current time
+    struct tm *tm = localtime(&localTime); // convert the time_t value to a tm struct
+
+    // create a timestamp string using strftime() function
+    char timestamp[20];
+    strftime(timestamp, sizeof(timestamp), "%Y-%m-%d %H:%M:%S", tm);
+    TelnetStream.println( timestamp); // print the local time stamp
+  }
 #endif
 
 
@@ -543,11 +563,14 @@ void setup() {
 
 #ifdef USE_NTP
   settimeofday_cb(time_is_set); // optional: callback if time was sent
-  configTime( NTP_TIMEZONE, NTP_SERVER);
   if (!config.isNull() && config.containsKey("timezone")) 
     configTime( config["timezone"], NTP_SERVER);
   else
-    configTime( NTP_TIMEZONE, NTP_SERVER);
+    configTime( NTP_DEFAULT_TIME_ZONE, NTP_SERVER);
+#endif
+
+#ifdef TELNET
+  TelnetStream.begin();
 #endif
 
 // Put your initialisation code here
@@ -606,6 +629,11 @@ void loop() {
     Serial.println(asctime(localtime(&localTime)));
   }
 #endif
+
+#ifdef TELNET
+  telnet_log();
+#endif
+
 
 
   Serial.print("Free heap: ");
