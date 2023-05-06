@@ -55,23 +55,26 @@
   */
 
 #include <Arduino.h>
-#include "Stream.h"
 
-Stream& console = nullptr;
+#include <stdarg.h>
+
+// char strBuf[128]; // buffer for char string operations
+// // can be used like this: println( SNPRINTF("The answer is %d", 42));
+// #define SNPRINTF(format, ...) \
+//     (snprintf(strBuf, sizeof(strBuf), format, ##__VA_ARGS__) >= 0 ? strBuf : ((strBuf[0] = '\0'), strBuf))
 
 // Optional functionality. Comment out defines to disable feature
 #define WIFI_PORTAL                   // Enable WiFi config portal
 #define WPS_CONFIG                    // press WPS bytton on wifi pathr
 #define ARDUINO_OTA                   // Enable Arduino IDE OTA updates
-// #define HTTP_OTA                      // Enable OTA updates from http server
+#define HTTP_OTA                      // Enable OTA updates from http server
 #define LED_STATUS_FLASH              // Enable flashing LED status
 // #define DEEP_SLEEP_SECONDS  300       // Define for sleep period between process repeats. No sleep if not defined
 #define JSON_CONFIG_OTA                   // upload JSON config via OTA providing REST API
 #define GDB_DEBUG                    // enable debugging using GDB using serial 
 #define USE_NTP                       // enable NTP
 #define HTTPS_REST_CLIENT            // provide HTTPS REST client
-#define TELNET                       // use telnet
-
+// #define TELNET                       // use telnet
 
 #define FAST_CONNECTION_TIMEOUT 10000 // timeout for initial connection atempt 
 
@@ -111,7 +114,7 @@ Stream& console = nullptr;
   #define HTTP_OTA_ADDRESS      F("192.168.#.###")   // Address of OTA update server
   #define HTTP_OTA_PATH         F("/esp8266-ota/update") // Path to update firmware
   #define HTTP_OTA_PORT         1888                     // Port of update server
-                                                         // Name of firmware
+  // Name of firmware
   #define HTTP_OTA_VERSION      String(__FILE__).substring(String(__FILE__).lastIndexOf('/')+1) + ".generic" 
 #endif
 
@@ -269,7 +272,7 @@ void timeout_cb() {
   void time_is_set(boolean from_sntp /* <= this optional parameter can be used with ESP8266 Core 3.0.0*/) {
     ntp_set = true;
 
-    Serial.print(F("time was sent! from_sntp=")); Serial.println(from_sntp);
+    Serial.println("time was sent! from_sntp=" + from_sntp); 
     time_t now = time(nullptr);
     Serial.println(ctime(&now));
   }
@@ -339,12 +342,10 @@ void timeout_cb() {
       DeserializationError error = deserializeJson(response, http.getString());
 
       if (error) {
-        Serial.print("Failed to parse response JSON: ");
-        Serial.println(error.c_str());
+        Serial.println("Failed to parse response JSON: " + String(error.c_str()));
       }
     } else {
-      Serial.print("HTTP error code: ");
-      Serial.println(httpCode);
+      Serial.println("HTTP error code: " + httpCode);
     }
 
     // Release the resources used by the HTTP client
@@ -357,17 +358,46 @@ void timeout_cb() {
 
 #ifdef TELNET
   #include <TelnetStream.h>
-
-  void telnet_log() {
-    time_t localTime = time(nullptr); // get the current time
-    struct tm *tm = localtime(&localTime); // convert the time_t value to a tm struct
-
-    // create a timestamp string using strftime() function
-    char timestamp[20];
-    strftime(timestamp, sizeof(timestamp), "%Y-%m-%d %H:%M:%S", tm);
-    TelnetStream.println( timestamp); // print the local time stamp
-  }
 #endif
+
+#include "Stream.h"
+Stream *console; // pointer to Stream object
+
+void consoleLog(const __FlashStringHelper *format, ...) {
+  const char* fmt = reinterpret_cast<const char*>(format);
+
+   time_t localTime = time(nullptr);
+  struct tm* tm = localtime(&localTime);
+
+  // Create a temp string using strftime() function
+  char temp[100];
+  strftime(temp, sizeof(temp), "%Y-%m-%d %H:%M:%S ", tm);
+
+  console->print(temp);
+  va_list arg;
+  va_start(arg, format);
+  vsnprintf(temp, sizeof(temp), fmt, arg);
+  va_end(arg);
+  console->print( temp);
+  console->print( "\n");
+}
+
+// void consoleLog(const char *format, ...) {
+//   time_t localTime = time(nullptr);
+//   struct tm* tm = localtime(&localTime);
+
+//   // Create a temp string using strftime() function
+//   char temp[100];
+//   strftime(temp, sizeof(temp), "%Y-%m-%d %H:%M:%S ", tm);
+
+//   console->print(temp);
+//   va_list arg;
+//   va_start(arg, format);
+//   vsnprintf(temp, sizeof(temp), format, arg);
+//   va_end(arg);
+//   console->print( temp);
+//   console->print( "\n");
+// }
 
 
 // Put any project specific initialisation here
@@ -381,6 +411,7 @@ void setup() {
   #endif
 
   Serial.begin(115200);
+  console = &Serial; // use serial for now
 
   Serial.println(F("Booting"));
 
@@ -396,10 +427,9 @@ void setup() {
   if (WiFi.SSID().length() > 0)
   {
     // Print the SSID and password
-    Serial.print("WiFi credentials stored: ");
-    Serial.println(WiFi.SSID());
+    Serial.printf("WiFi credentials stored: %s\n", WiFi.SSID().c_str());
 
-    Serial.println("Connecting...");
+    Serial.println(F("Connecting..."));
     WiFi.begin(WiFi.SSID(), WiFi.psk());
     WiFi.waitForConnectResult(FAST_CONNECTION_TIMEOUT);
   }
@@ -407,14 +437,13 @@ void setup() {
 #ifdef WPS_CONFIG
   if (WiFi.status() != WL_CONNECTED)
   {
-    Serial.println("Starting WPS configuration...");
+    Serial.println(F("Starting WPS configuration..."));
     WiFi.beginWPSConfig();
 
     if (WiFi.SSID().length() > 0)
     {
       // Print the SSID and password
-      Serial.print("WPS credentials received: ");
-      Serial.println(WiFi.SSID());
+      Serial.printf("WPS credentials received: %s", WiFi.SSID().c_str());
 
       WiFi.begin(WiFi.SSID(), WiFi.psk());
       WiFi.persistent(true);
@@ -473,21 +502,26 @@ void setup() {
     timeout_cb();
   }
 
-  Serial.print(F("IP address: "));
-  Serial.println(WiFi.localIP());
+  #ifdef LED_STATUS_FLASH
+    flasher.detach();
+    digitalWrite(STATUS_LED, LED_OFF);
+  #endif
 
-#ifdef LED_STATUS_FLASH
-  flasher.detach();
-  digitalWrite(STATUS_LED, LED_OFF);
+  // we have internet connection
+  Serial.print(F("IP address: "));  Serial.println( WiFi.localIP());
+
+  #ifdef TELNET
+    TelnetStream.begin();
+    console = &TelnetStream; // now use telnet instead
+    Serial.println(F("Console functions now via Telnet!"));
+  #else
+
 #endif
 
 #ifdef HTTP_OTA
   // Check server for firmware updates
-  Serial.print("Checking for firmware updates from server http://");
-  Serial.print(HTTP_OTA_ADDRESS);
-  Serial.print(":");
-  Serial.print(HTTP_OTA_PORT);
-  Serial.println(HTTP_OTA_PATH);
+  consoleLog( F("Checking for firmware updates from http://%s:%d%s"), 
+    HTTP_OTA_ADDRESS, HTTP_OTA_PORT, HTTP_OTA_PATH);
 
   WiFiClient client;
   #ifdef LED_STATUS_FLASH
@@ -495,15 +529,15 @@ void setup() {
   #endif
   switch(ESPhttpUpdate.update(client, HTTP_OTA_ADDRESS, HTTP_OTA_PORT, HTTP_OTA_PATH, HTTP_OTA_VERSION)) {
     case HTTP_UPDATE_FAILED:
-      Serial.printf("HTTP update failed: Error (%d): %s\n", ESPhttpUpdate.getLastError(), ESPhttpUpdate.getLastErrorString().c_str());
+      consoleLog(F("HTTP update failed: Error (%d): %s\n"), ESPhttpUpdate.getLastError(), ESPhttpUpdate.getLastErrorString().c_str());
       break;
 
     case HTTP_UPDATE_NO_UPDATES:
-      Serial.println(F("No updates"));
+      consoleLog(F("No updates"));
       break;
 
     case HTTP_UPDATE_OK:
-      Serial.println(F("Update OK"));
+      consoleLog(F("Update OK"));
       break;
     }
 #endif
@@ -515,10 +549,10 @@ void setup() {
   ArduinoOTA.setPassword(ARDUINO_OTA_PASSWD);
   ArduinoOTA.onStart([]() {
     watchdog.detach();
-    Serial.println("Start");
+    Serial.println(F("Start"));
   });
   ArduinoOTA.onEnd([]() {
-    Serial.println("\nEnd");
+    Serial.println(F("\nEnd"));
   });
   ArduinoOTA.onProgress([](unsigned int progress, unsigned int total) {
     Serial.printf("Progress: %u%%\r", (progress / (total / 100)));
@@ -569,9 +603,6 @@ void setup() {
     configTime( NTP_DEFAULT_TIME_ZONE, NTP_SERVER);
 #endif
 
-#ifdef TELNET
-  TelnetStream.begin();
-#endif
 
 // Put your initialisation code here
 
@@ -619,27 +650,17 @@ void loop() {
     // Calculate time zone offset in seconds
     int timeZone = (tmLocal->tm_hour - tmNow->tm_hour) * 3600 + (tmLocal->tm_min - tmNow->tm_min) * 60;
 
-    // Parse ISO 8601 timestamp and convert to local time
+    // Parse ISO 8601 timestamp and convert to local time   
     Serial.println("ISO 8601 timestamp: " + timestampStr);
     struct tm tmTimestamp;
     strptime(timestampStr.c_str(), "%Y-%m-%dT%H:%M:%S%z", &tmTimestamp);
     time_t utcTime = mktime(&tmTimestamp);
     time_t localTime = utcTime + timeZone; // add timezone offset
-    Serial.print("Local time: ");
-    Serial.println(asctime(localtime(&localTime)));
+    Serial.println("Local time: " + String(asctime(localtime(&localTime))));
   }
 #endif
 
-#ifdef TELNET
-  telnet_log();
-#endif
-
-
-
-  Serial.print("Free heap: ");
-  Serial.print(ESP.getFreeHeap());
-  Serial.print("Max Free Block: ");
-  Serial.println(ESP.getMaxFreeBlockSize());
+  consoleLog( F("Free heap: %d Max Free Block: %d"), ESP.getFreeHeap(), ESP.getMaxFreeBlockSize());
 
   delay(10000);
 
