@@ -110,12 +110,12 @@
    */
   #include <ESP8266HTTPClient.h>
   #include <ESP8266httpUpdate.h>
-
-  #define HTTP_OTA_ADDRESS      F("192.168.#.###")   // Address of OTA update server
-  #define HTTP_OTA_PATH         F("/esp8266-ota/update") // Path to update firmware
-  #define HTTP_OTA_PORT         1888                     // Port of update server
-  // Name of firmware
-  #define HTTP_OTA_VERSION      String(__FILE__).substring(String(__FILE__).lastIndexOf('/')+1) + ".generic" 
+  // default: can be overwritten by config file
+  #define HTTP_OTA_URL      "http://192.168.0.1:8080/firmware"
+  #define HTTP_OTA_USERNAME "myupdateuser"
+  #define HTTP_OTA_PASSWORD "myupdatepw"
+  // string describing current version
+  #define HTTP_OTA_VERSION  String(__FILE__) + "-" + String(__DATE__) + "-" + String(__TIME__)
 #endif
 
 #ifdef JSON_CONFIG_OTA
@@ -399,6 +399,52 @@ void consoleLog(const __FlashStringHelper *format, ...) {
 //   console->print( "\n");
 // }
 
+#ifdef HTTP_OTA
+  boolean perform_HTTP_OTA_Update() {
+    // overwrite by config if provided
+    String http_ota_url = HTTP_OTA_URL;
+    if (!config.isNull() && config.containsKey("http_ota_url"))
+      http_ota_url = config["http_ota_url"].as<String>();
+
+    String http_ota_username = HTTP_OTA_USERNAME;
+    if (!config.isNull() && config.containsKey("http_ota_username"))
+      http_ota_username = config["http_ota_username"].as<String>();
+
+    String http_ota_password = HTTP_OTA_PASSWORD;
+    if (!config.isNull() && config.containsKey("http_ota_password"))
+      http_ota_password = config["http_ota_password"].as<String>();
+
+    // Check server for firmware updates
+    consoleLog( F("Checking for firmware updates from %s"), http_ota_url.c_str());
+
+    WiFiClient client;
+    #ifdef LED_STATUS_FLASH
+      ESPhttpUpdate.setLedPin(STATUS_LED, LED_ON); // define level for LED on
+    #endif
+
+    // use authorization?
+    if (!http_ota_username.isEmpty() && !http_ota_password.isEmpty() ) 
+      ESPhttpUpdate.setAuthorization( http_ota_username, http_ota_password);
+
+    switch (ESPhttpUpdate.update(client, http_ota_url, HTTP_OTA_VERSION)) {
+      // "192.168.0.237",8080, "firmware", 
+      case HTTP_UPDATE_FAILED:
+        consoleLog(F("HTTP update failed: Error (%d): %s\n"), ESPhttpUpdate.getLastError(), ESPhttpUpdate.getLastErrorString().c_str());
+        return false;
+
+      case HTTP_UPDATE_NO_UPDATES:
+        consoleLog(F("No updates"));
+        return false;
+
+      case HTTP_UPDATE_OK:
+        consoleLog(F("Update OK"));
+        return true;
+      default:
+        return false;
+    }
+    return false;
+  }
+#endif
 
 // Put any project specific initialisation here
 
@@ -519,27 +565,7 @@ void setup() {
 #endif
 
 #ifdef HTTP_OTA
-  // Check server for firmware updates
-  consoleLog( F("Checking for firmware updates from http://%s:%d%s"), 
-    HTTP_OTA_ADDRESS, HTTP_OTA_PORT, HTTP_OTA_PATH);
-
-  WiFiClient client;
-  #ifdef LED_STATUS_FLASH
-    ESPhttpUpdate.setLedPin(STATUS_LED, LED_ON); // define level for LED on
-  #endif
-  switch(ESPhttpUpdate.update(client, HTTP_OTA_ADDRESS, HTTP_OTA_PORT, HTTP_OTA_PATH, HTTP_OTA_VERSION)) {
-    case HTTP_UPDATE_FAILED:
-      consoleLog(F("HTTP update failed: Error (%d): %s\n"), ESPhttpUpdate.getLastError(), ESPhttpUpdate.getLastErrorString().c_str());
-      break;
-
-    case HTTP_UPDATE_NO_UPDATES:
-      consoleLog(F("No updates"));
-      break;
-
-    case HTTP_UPDATE_OK:
-      consoleLog(F("Update OK"));
-      break;
-    }
+  perform_HTTP_OTA_Update();
 #endif
 
 #ifdef ARDUINO_OTA
@@ -660,7 +686,13 @@ void loop() {
   }
 #endif
 
+  consoleLog( F("Current firmware version: %s"), (HTTP_OTA_VERSION).c_str());
   consoleLog( F("Free heap: %d Max Free Block: %d"), ESP.getFreeHeap(), ESP.getMaxFreeBlockSize());
+
+  #ifdef HTTP_OTA
+    perform_HTTP_OTA_Update();
+  #endif
+
 
   delay(10000);
 
