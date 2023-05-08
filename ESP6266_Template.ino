@@ -137,12 +137,13 @@ curl -v  -X POST  -H "Content-Type: application/json" -u admin:mypassword --data
   "timezone" : "AEST-10AEDT,M10.1.0,M4.1.0/3"
 }
 */
+// defaults - can be overwritten with JSON config file
+#define JSON_CONFIG_USERNAME "myJsonUser"
+#define JSON_CONFIG_PASSWD "myJsonPassword"
+#define JSON_CONFIG_OTA_PATH "/config"
+#define JSON_CONFIG_OTA_PORT 80
 
-  #define JSON_CONFIG_USERNAME "admin"
-  #define JSON_CONFIG_PASSWD "1csqBgpHchquXkzQlgl4"
-  #define JSON_CONFIG_OTA_path "/config"
-  #define JSON_CONFIG_OTA_PORT 80
-  #define JSON_CONFIG_OTA_FILE "/config.json"
+#define JSON_CONFIG_OTA_FILE "/config.json"
 #endif
 
 const uint8 STATUS_LED = LED_BUILTIN; // Built-in blue LED change if required e.g. pin 2
@@ -204,52 +205,6 @@ void configModeCallback(WiFiManager *myWiFiManager)
 }
 #endif
 
-#ifdef JSON_CONFIG_OTA
-ESP8266WebServer server(JSON_CONFIG_OTA_PORT);
-
-void handleConfig()
-{
-  if (!server.authenticate(JSON_CONFIG_USERNAME, JSON_CONFIG_PASSWD))
-  {
-    return server.requestAuthentication();
-  }
-
-  if (server.method() == HTTP_POST)
-  {
-    // Only accept JSON content type
-    if (server.hasHeader("Content-Type") && server.header("Content-Type") == "application/json")
-    {
-      // Parse JSON payload
-      DynamicJsonDocument doc(JSON_CONFIG_MAXSIZE);
-      deserializeJson(doc, server.arg("plain"));
-      doc.shrinkToFit();
-
-      // Store JSON payload in SPIFFS
-      File configFile = SPIFFS.open(JSON_CONFIG_OTA_FILE, "w");
-      if (configFile)
-      {
-        serializeJson(doc, configFile);
-        configFile.close();
-        retrieveJSON(config, JSON_CONFIG_OTA_FILE); // refresh config
-        server.send(200);
-      }
-      else
-      {
-        server.send(500, "text/plain", "Failed to open config file for writing");
-      }
-    }
-    else
-    {
-      server.send(400, "text/plain", "Invalid content type: " + server.header("Content-Type"));
-    }
-  }
-  else
-  {
-    server.send(405, "text/plain", "Method Not Allowed");
-  }
-}
-#endif
-
 #ifdef GDB_DEBUG
 #include <GDBStub.h>
 #endif
@@ -272,6 +227,22 @@ boolean retrieveJSON(DynamicJsonDocument &doc, String filename)
   file.close();
 
   return !error;
+}
+
+const char *useConfig( const char *configKey, const char *defaultValue)
+{
+  if (!config.isNull() && config.containsKey(configKey))
+    return config[configKey];
+  else
+    return defaultValue;
+}
+
+String useConfig(const char *configKey, String defaultValue)
+{
+  if (!config.isNull() && config.containsKey(configKey))
+    return config[configKey].as<String>();
+  else
+    return defaultValue;
 }
 
 #endif
@@ -431,46 +402,38 @@ void consoleLog(const __FlashStringHelper *format, ...)
 // }
 
 #ifdef ARDUINO_OTA
-  void setup_ArduinoOTA() {
-    // Arduino OTA Initalisation
-    ArduinoOTA.setPort(ARDUINO_OTA_PORT);
-    ArduinoOTA.setHostname(SSID);
-    ArduinoOTA.setPassword(ARDUINO_OTA_PASSWD);
-    ArduinoOTA.onStart([]()
-                      {
+void setup_ArduinoOTA()
+{
+  // Arduino OTA Initalisation
+  ArduinoOTA.setPort(ARDUINO_OTA_PORT);
+  ArduinoOTA.setHostname(SSID);
+  ArduinoOTA.setPassword(ARDUINO_OTA_PASSWD);
+  ArduinoOTA.onStart([]()
+                     {
       watchdog.detach();
       Serial.println(F("Start")); });
-    ArduinoOTA.onEnd([]()
-                    { Serial.println(F("\nEnd")); });
-    ArduinoOTA.onProgress([](unsigned int progress, unsigned int total)
-                          { Serial.printf("Progress: %u%%\r", (progress / (total / 100))); });
-    ArduinoOTA.onError([](ota_error_t error)
-                      {
+  ArduinoOTA.onEnd([]()
+                   { Serial.println(F("\nEnd")); });
+  ArduinoOTA.onProgress([](unsigned int progress, unsigned int total)
+                        { Serial.printf("Progress: %u%%\r", (progress / (total / 100))); });
+  ArduinoOTA.onError([](ota_error_t error)
+                     {
       Serial.printf("Error[%u]: ", error);
       if (error == OTA_AUTH_ERROR) Serial.println("Auth Failed");
       else if (error == OTA_BEGIN_ERROR) Serial.println("Begin Failed");
       else if (error == OTA_CONNECT_ERROR) Serial.println("Connect Failed");
       else if (error == OTA_RECEIVE_ERROR) Serial.println("Receive Failed");
       else if (error == OTA_END_ERROR) Serial.println("End Failed"); });
-    ArduinoOTA.begin();
-  }
+  ArduinoOTA.begin();
+}
 #endif
 
 #ifdef HTTP_OTA
 boolean perform_HTTP_OTA_Update()
 {
-  // overwrite by config if provided
-  String http_ota_url = HTTP_OTA_URL;
-  if (!config.isNull() && config.containsKey("http_ota_url"))
-    http_ota_url = config["http_ota_url"].as<String>();
-
-  String http_ota_username = HTTP_OTA_USERNAME;
-  if (!config.isNull() && config.containsKey("http_ota_username"))
-    http_ota_username = config["http_ota_username"].as<String>();
-
-  String http_ota_password = HTTP_OTA_PASSWORD;
-  if (!config.isNull() && config.containsKey("http_ota_password"))
-    http_ota_password = config["http_ota_password"].as<String>();
+  String http_ota_url = useConfig("http_ota_url", HTTP_OTA_URL);
+  String http_ota_username = useConfig("http_ota_username", HTTP_OTA_USERNAME);
+  String http_ota_password = useConfig("http_ota_password", HTTP_OTA_PASSWORD);
 
   // Check server for firmware updates
   consoleLog(F("Checking for firmware updates from %s"), http_ota_url.c_str());
@@ -482,8 +445,8 @@ boolean perform_HTTP_OTA_Update()
 
   // use authorization?
   if (!http_ota_username.isEmpty() && !http_ota_password.isEmpty())
-    ESPhttpUpdate.setAuthorization(http_ota_username, http_ota_password);
-  // "192.168.0.237",8080, "firmware",
+    ESPhttpUpdate.setAuthorization( http_ota_username, http_ota_password);
+
   switch (ESPhttpUpdate.update(client, http_ota_url, HTTP_OTA_VERSION))
   {
   case HTTP_UPDATE_FAILED:
@@ -505,139 +468,195 @@ boolean perform_HTTP_OTA_Update()
 #endif
 
 #ifdef USE_NTP
-  void setup_NTP() {
-    settimeofday_cb(time_is_set); // optional: callback if time was sent
-    if (!config.isNull() && config.containsKey("timezone"))
-      configTime(config["timezone"], NTP_SERVER);
-    else
-      configTime(NTP_DEFAULT_TIME_ZONE, NTP_SERVER);
-  }
+void setup_NTP()
+{
+  settimeofday_cb(time_is_set); // optional: callback if time was sent
+  if (!config.isNull() && config.containsKey("timezone"))
+    configTime(config["timezone"], NTP_SERVER);
+  else
+    configTime(NTP_DEFAULT_TIME_ZONE, NTP_SERVER);
+}
 #endif
 
 #ifdef JSON_CONFIG_OTA
-  void setup_JSON_CONFIG_OTA() {
-    // Initialize SPIFFS
-    if (!SPIFFS.begin())
-    {
-      Serial.println("Failed to initialize SPIFFS");
-    }
+ESP8266WebServer server(JSON_CONFIG_OTA_PORT);
 
-    // Handle HTTP POST request for config
-    server.on(JSON_CONFIG_OTA_path, handleConfig);
-
-    // list of headers to be parsed
-    const char *headerkeys[] = {"Content-Type"};
-    size_t headerkeyssize = sizeof(headerkeys) / sizeof(char *);
-    // ask server to parsed these headers
-    server.collectHeaders(headerkeys, headerkeyssize);
-
-    // Start server
-    server.begin();
+void handleConfig()
+{
+  if (!server.authenticate( useConfig( "json_config_ota_username", JSON_CONFIG_USERNAME), 
+                            useConfig( "json_config_ota_password", JSON_CONFIG_PASSWD)))
+  {
+    return server.requestAuthentication();
   }
-#endif
 
-  boolean connectWIFI() {
-  #ifdef LED_STATUS_FLASH
-    pinMode(STATUS_LED, OUTPUT);
-    flasher.attach(0.6, flash);
-  #endif
-
-    // Watchdog timer - resets if setup takes longer than allocated time
-    watchdog.once(WATCHDOG_SETUP_SECONDS, &timeout_cb);
-
-    // try connect using previous connection details stored in eeprom
-    if (WiFi.SSID().length() > 0)
+  if (server.method() == HTTP_POST)
+  {
+    // Only accept JSON content type
+    if (server.hasHeader("Content-Type") && server.header("Content-Type") == "application/json")
     {
-      // Print the SSID and password
-      Serial.printf("WiFi credentials stored: %s\n", WiFi.SSID().c_str());
+      // Parse JSON payload
+      DynamicJsonDocument doc(JSON_CONFIG_MAXSIZE);
+      deserializeJson(doc, server.arg("plain"));
+      doc.shrinkToFit();
 
-      Serial.println(F("Connecting..."));
-      WiFi.begin(WiFi.SSID(), WiFi.psk());
-      WiFi.waitForConnectResult(FAST_CONNECTION_TIMEOUT);
-    }
-
-  #ifdef WPS_CONFIG
-    if (WiFi.status() != WL_CONNECTED)
-    {
-      Serial.println(F("Starting WPS configuration..."));
-      WiFi.beginWPSConfig();
-
-      if (WiFi.SSID().length() > 0)
+      // Store JSON payload in SPIFFS
+      File configFile = SPIFFS.open(JSON_CONFIG_OTA_FILE, "w");
+      if (configFile)
       {
-        // Print the SSID and password
-        Serial.printf("WPS credentials received: %s", WiFi.SSID().c_str());
-
-        WiFi.begin(WiFi.SSID(), WiFi.psk());
-        WiFi.persistent(true);
-        WiFi.setAutoConnect(true);
-        WiFi.setAutoReconnect(true);
-        if (WiFi.waitForConnectResult() != WL_CONNECTED)
-        {
-          Serial.println(F("Connecting using WPS failed!"));
-          timeout_cb();
-        }
-      }
-    }
-  #endif
-
-    // Set up WiFi connection using portal
-    if (WiFi.status() != WL_CONNECTED)
-    {
-  #ifdef WIFI_PORTAL
-  #ifdef WIFI_PORTAL_TRIGGER_PIN
-      pinMode(WIFI_PORTAL_TRIGGER_PIN, INPUT_PULLUP);
-      delay(100);
-      if (digitalRead(WIFI_PORTAL_TRIGGER_PIN) == LOW)
-      {
-        watchdog.detach();
-        if (!wifiManager.startConfigPortal(SSID, NULL))
-        {
-          Serial.println(F("Config Portal Failed!"));
-          timeout_cb();
-        }
+        serializeJson(doc, configFile);
+        configFile.close();
+        retrieveJSON(config, JSON_CONFIG_OTA_FILE); // refresh config
+        server.send(200);
       }
       else
       {
-  #endif
-
-        wifiManager.setConfigPortalTimeout(180);
-        wifiManager.setAPCallback(configModeCallback);
-        if (!wifiManager.autoConnect())
-        {
-          Serial.println(F("Connection Failed!"));
-          timeout_cb();
-        }
-
-  #ifdef WIFI_PORTAL_TRIGGER_PIN
+        server.send(500, "text/plain", "Failed to open config file for writing");
       }
-  #endif
-
-  #else
-      // Save boot up time by not configuring them if they haven't changed
-      if (WiFi.SSID() != WIFI_SSID)
-      {
-        Serial.println(F("Initialising Wifi..."));
-        WiFi.mode(WIFI_STA);
-        WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
-        WiFi.persistent(true);
-        WiFi.setAutoConnect(true);
-        WiFi.setAutoReconnect(true);
-      }
-  #endif
     }
-
-    if (WiFi.waitForConnectResult() != WL_CONNECTED)
+    else
     {
-      Serial.println(F("Connection Finally Failed!"));
-      timeout_cb();
+      server.send(400, "text/plain", "Invalid content type: " + server.header("Content-Type"));
     }
+  }
+  else
+  {
+    server.send(405, "text/plain", "Method Not Allowed");
+  }
+}
 
-  #ifdef LED_STATUS_FLASH
-    flasher.detach();
-    digitalWrite(STATUS_LED, LED_OFF);
-  #endif
+void setup_JSON_CONFIG_OTA()
+{
+  // Initialize SPIFFS
+  if (!SPIFFS.begin())
+  {
+    Serial.println("Failed to initialize SPIFFS");
+  }
 
-  if (WiFi.status() == WL_CONNECTED) {
+  // Handle HTTP POST request for config
+  server.on( useConfig( "json_config_ota_path", JSON_CONFIG_OTA_PATH), handleConfig);
+
+  // list of headers to be parsed
+  const char *headerkeys[] = {"Content-Type"};
+  size_t headerkeyssize = sizeof(headerkeys) / sizeof(char *);
+  // ask server to parsed these headers
+  server.collectHeaders(headerkeys, headerkeyssize);
+
+  // Start server
+  JsonVariant v = config["json_config_ota_port"]; 
+  int port = v.as<int>();
+  // not working: port = 0
+  Serial.printf( "json_config_ota_port=%d\n", port);
+  if (port)
+    server.begin( port);
+  else
+    server.begin();
+}
+#endif
+
+boolean connectWIFI()
+{
+#ifdef LED_STATUS_FLASH
+  pinMode(STATUS_LED, OUTPUT);
+  flasher.attach(0.6, flash);
+#endif
+
+  // Watchdog timer - resets if setup takes longer than allocated time
+  watchdog.once(WATCHDOG_SETUP_SECONDS, &timeout_cb);
+
+  // try connect using previous connection details stored in eeprom
+  if (WiFi.SSID().length() > 0)
+  {
+    // Print the SSID and password
+    Serial.printf("WiFi credentials stored: %s\n", WiFi.SSID().c_str());
+
+    Serial.println(F("Connecting..."));
+    WiFi.begin(WiFi.SSID(), WiFi.psk());
+    WiFi.waitForConnectResult(FAST_CONNECTION_TIMEOUT);
+  }
+
+#ifdef WPS_CONFIG
+  if (WiFi.status() != WL_CONNECTED)
+  {
+    Serial.println(F("Starting WPS configuration..."));
+    WiFi.beginWPSConfig();
+
+    if (WiFi.SSID().length() > 0)
+    {
+      // Print the SSID and password
+      Serial.printf("WPS credentials received: %s", WiFi.SSID().c_str());
+
+      WiFi.begin(WiFi.SSID(), WiFi.psk());
+      WiFi.persistent(true);
+      WiFi.setAutoConnect(true);
+      WiFi.setAutoReconnect(true);
+      if (WiFi.waitForConnectResult() != WL_CONNECTED)
+      {
+        Serial.println(F("Connecting using WPS failed!"));
+        timeout_cb();
+      }
+    }
+  }
+#endif
+
+  // Set up WiFi connection using portal
+  if (WiFi.status() != WL_CONNECTED)
+  {
+#ifdef WIFI_PORTAL
+#ifdef WIFI_PORTAL_TRIGGER_PIN
+    pinMode(WIFI_PORTAL_TRIGGER_PIN, INPUT_PULLUP);
+    delay(100);
+    if (digitalRead(WIFI_PORTAL_TRIGGER_PIN) == LOW)
+    {
+      watchdog.detach();
+      if (!wifiManager.startConfigPortal(SSID, NULL))
+      {
+        Serial.println(F("Config Portal Failed!"));
+        timeout_cb();
+      }
+    }
+    else
+    {
+#endif
+
+      wifiManager.setConfigPortalTimeout(180);
+      wifiManager.setAPCallback(configModeCallback);
+      if (!wifiManager.autoConnect())
+      {
+        Serial.println(F("Connection Failed!"));
+        timeout_cb();
+      }
+
+#ifdef WIFI_PORTAL_TRIGGER_PIN
+    }
+#endif
+
+#else
+    // Save boot up time by not configuring them if they haven't changed
+    if (WiFi.SSID() != WIFI_SSID)
+    {
+      Serial.println(F("Initialising Wifi..."));
+      WiFi.mode(WIFI_STA);
+      WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
+      WiFi.persistent(true);
+      WiFi.setAutoConnect(true);
+      WiFi.setAutoReconnect(true);
+    }
+#endif
+  }
+
+  if (WiFi.waitForConnectResult() != WL_CONNECTED)
+  {
+    Serial.println(F("Connection Finally Failed!"));
+    timeout_cb();
+  }
+
+#ifdef LED_STATUS_FLASH
+  flasher.detach();
+  digitalWrite(STATUS_LED, LED_OFF);
+#endif
+
+  if (WiFi.status() == WL_CONNECTED)
+  {
     // we have internet connection
     Serial.print(F("IP address: "));
     Serial.println(WiFi.localIP());
@@ -645,7 +664,7 @@ boolean perform_HTTP_OTA_Update()
   }
   else
     return false;
-  }
+}
 
 // Put any project specific initialisation here
 
@@ -660,8 +679,8 @@ void setup()
 
   Serial.println(F("Booting"));
 
-// connect to WIFI depending on what connection features are enabled
-connectWIFI();
+  // connect to WIFI depending on what connection features are enabled
+  connectWIFI();
 
 #ifdef TELNET
   TelnetStream.begin();
@@ -684,7 +703,8 @@ connectWIFI();
 #endif
 
 #ifdef JSON_CONFIG_OTA
-  if (retrieveJSON(config, JSON_CONFIG_OTA_FILE)) {
+  if (retrieveJSON(config, JSON_CONFIG_OTA_FILE))
+  {
     serializeJsonPretty(config, Serial);
     Serial.println();
   }
@@ -735,7 +755,6 @@ void loop()
     time_t localNow = mktime(tmNow);
     struct tm *tmLocal = localtime(&localNow);
 
-
     // Calculate time zone offset in seconds
     int timeZone = (tmLocal->tm_hour - tmNow->tm_hour) * 3600 + (tmLocal->tm_min - tmNow->tm_min) * 60;
 
@@ -750,6 +769,10 @@ void loop()
 #endif
 
   consoleLog(F("Free heap: %d Max Free Block: %d"), ESP.getFreeHeap(), ESP.getMaxFreeBlockSize());
+
+  #ifdef HTTP_OTA
+    perform_HTTP_OTA_Update();
+  #endif
 
   delay(10000);
 
