@@ -155,6 +155,15 @@ public:
     currentStream->print(temp);
     currentStream->print("\n");
   }
+
+  // // Function to log messages
+  // template<typename... Args>
+  // void log(const Args&... args) {
+  //   printTimestamp();
+  //   print(args...);
+  //   println();
+  // }
+
 };
 
 Console console;
