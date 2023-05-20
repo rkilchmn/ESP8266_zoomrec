@@ -75,7 +75,7 @@
 #define GDB_DEBUG         // enable debugging using GDB using serial
 #define USE_NTP           // enable NTP
 #define HTTPS_REST_CLIENT // provide HTTPS REST client
-#define TELNET                       // use telnet
+#define TELNET            // use telnet
 
 #define FAST_CONNECTION_TIMEOUT 10000 // timeout for initial connection atempt
 
@@ -90,6 +90,74 @@ WiFiManager wifiManager;
 #else
 const char *WIFI_SSID = "SSID" const char *WIFI_PASSWORD = "password"
 #endif
+
+class Console : public Stream {
+private:
+  Stream* currentStream;
+
+public:
+  // Constructor
+  Console() {
+    currentStream = &Serial;
+  }
+
+  // Required Stream functions to implement
+  virtual size_t write(uint8_t data) {
+    // Print the data to the current stream
+    return currentStream->write(data);
+  }
+
+  virtual int available() {
+    // Check the availability of input data on the current stream
+    return currentStream->available();
+  }
+
+  virtual int read() {
+    // Read a byte of data from the current stream
+    return currentStream->read();
+  }
+
+  virtual int peek() {
+    // Peek at the next byte of input data from the current stream
+    return currentStream->peek();
+  }
+
+  // Additional functions from Stream that can be implemented if needed
+  // ...
+
+  // Function to begin with Serial
+  void begin(unsigned long baudRate) {
+    Serial.begin(baudRate);
+    currentStream = &Serial;
+  }
+
+  // Function to begin with a stream e.g. TelnetStream
+  void begin(Stream& stream) {
+    currentStream = &stream;
+  }
+
+  void log(const __FlashStringHelper *format, ...)
+  {
+    const char *fmt = reinterpret_cast<const char *>(format);
+
+    time_t localTime = time(nullptr);
+    struct tm *tm = localtime(&localTime);
+
+    // Create a temp string using strftime() function
+    char temp[100];
+    strftime(temp, sizeof(temp), "%Y-%m-%d %H:%M:%S ", tm);
+
+    currentStream->print(temp);
+    va_list arg;
+    va_start(arg, format);
+    vsnprintf(temp, sizeof(temp), fmt, arg);
+    va_end(arg);
+    currentStream->print(temp);
+    currentStream->print("\n");
+  }
+};
+
+Console console;
 
 #ifdef ARDUINO_OTA
 /* Over The Air updates directly from Arduino IDE */
@@ -163,7 +231,7 @@ const uint8 WATCHDOG_LOOP_SECONDS = 20;  // Loop should complete well within thi
 void timeout_cb()
 {
   // This sleep happened because of timeout. Do a restart after a sleep
-  Serial.println(F("Watchdog timeout..."));
+  console.println(F("Watchdog timeout..."));
 
 #ifdef DEEP_SLEEP_SECONDS
   // Enter DeepSleep so that we don't exhaust our batteries by countinuously trying to
@@ -268,9 +336,9 @@ void time_is_set(boolean from_sntp /* <= this optional parameter can be used wit
 {
   ntp_set = true;
 
-  Serial.println("time was sent! from_sntp=" + from_sntp);
+  console.println("time was sent! from_sntp=" + from_sntp);
   time_t now = time(nullptr);
-  Serial.println(ctime(&now));
+  console.println(ctime(&now));
 }
 
 uint32_t sntp_startup_delay_MS_rfc_not_less_than_60000()
@@ -346,12 +414,12 @@ DynamicJsonDocument performHttpsRequest(const char *method, const char *url, con
 
     if (error)
     {
-      Serial.println("Failed to parse response JSON: " + String(error.c_str()));
+      console.println("Failed to parse response JSON: " + String(error.c_str()));
     }
   }
   else
   {
-    Serial.println("HTTP error code: " + httpCode);
+    console.println("HTTP error code: " + httpCode);
   }
 
   // Release the resources used by the HTTP client
@@ -366,46 +434,6 @@ DynamicJsonDocument performHttpsRequest(const char *method, const char *url, con
 #include <TelnetStream.h>
 #endif
 
-#include "Stream.h"
-Stream *console; // pointer to Stream object
-
-void consoleLog(const __FlashStringHelper *format, ...)
-{
-  const char *fmt = reinterpret_cast<const char *>(format);
-
-  time_t localTime = time(nullptr);
-  struct tm *tm = localtime(&localTime);
-
-  // Create a temp string using strftime() function
-  char temp[100];
-  strftime(temp, sizeof(temp), "%Y-%m-%d %H:%M:%S ", tm);
-
-  console->print(temp);
-  va_list arg;
-  va_start(arg, format);
-  vsnprintf(temp, sizeof(temp), fmt, arg);
-  va_end(arg);
-  console->print(temp);
-  console->print("\n");
-}
-
-// void consoleLog(const char *format, ...) {
-//   time_t localTime = time(nullptr);
-//   struct tm* tm = localtime(&localTime);
-
-//   // Create a temp string using strftime() function
-//   char temp[100];
-//   strftime(temp, sizeof(temp), "%Y-%m-%d %H:%M:%S ", tm);
-
-//   console->print(temp);
-//   va_list arg;
-//   va_start(arg, format);
-//   vsnprintf(temp, sizeof(temp), format, arg);
-//   va_end(arg);
-//   console->print( temp);
-//   console->print( "\n");
-// }
-
 #ifdef ARDUINO_OTA
 void setup_ArduinoOTA()
 {
@@ -416,19 +444,19 @@ void setup_ArduinoOTA()
   ArduinoOTA.onStart([]()
                      {
       watchdog.detach();
-      Serial.println(F("Start")); });
+      console.println(F("Start")); });
   ArduinoOTA.onEnd([]()
-                   { Serial.println(F("\nEnd")); });
+                   { console.println(F("\nEnd")); });
   ArduinoOTA.onProgress([](unsigned int progress, unsigned int total)
-                        { Serial.printf("Progress: %u%%\r", (progress / (total / 100))); });
+                        { console.printf("Progress: %u%%\r", (progress / (total / 100))); });
   ArduinoOTA.onError([](ota_error_t error)
                      {
-      Serial.printf("Error[%u]: ", error);
-      if (error == OTA_AUTH_ERROR) Serial.println("Auth Failed");
-      else if (error == OTA_BEGIN_ERROR) Serial.println("Begin Failed");
-      else if (error == OTA_CONNECT_ERROR) Serial.println("Connect Failed");
-      else if (error == OTA_RECEIVE_ERROR) Serial.println("Receive Failed");
-      else if (error == OTA_END_ERROR) Serial.println("End Failed"); });
+      console.printf("Error[%u]: ", error);
+      if (error == OTA_AUTH_ERROR) console.println("Auth Failed");
+      else if (error == OTA_BEGIN_ERROR) console.println("Begin Failed");
+      else if (error == OTA_CONNECT_ERROR) console.println("Connect Failed");
+      else if (error == OTA_RECEIVE_ERROR) console.println("Receive Failed");
+      else if (error == OTA_END_ERROR) console.println("End Failed"); });
   ArduinoOTA.begin();
 }
 #endif
@@ -441,7 +469,7 @@ boolean perform_HTTP_OTA_Update()
   String http_ota_password = useConfig("http_ota_password", HTTP_OTA_PASSWORD);
 
   // Check server for firmware updates
-  consoleLog(F("Checking for firmware updates from %s"), http_ota_url.c_str());
+  console.log(F("Checking for firmware updates from %s"), http_ota_url.c_str());
 
   WiFiClient client;
 #ifdef LED_STATUS_FLASH
@@ -455,15 +483,15 @@ boolean perform_HTTP_OTA_Update()
   switch (ESPhttpUpdate.update(client, http_ota_url, HTTP_OTA_VERSION))
   {
   case HTTP_UPDATE_FAILED:
-    consoleLog(F("HTTP update failed: Error (%d): %s\n"), ESPhttpUpdate.getLastError(), ESPhttpUpdate.getLastErrorString().c_str());
+    console.log(F("HTTP update failed: Error (%d): %s\n"), ESPhttpUpdate.getLastError(), ESPhttpUpdate.getLastErrorString().c_str());
     return false;
 
   case HTTP_UPDATE_NO_UPDATES:
-    consoleLog(F("No updates"));
+    console.log(F("No updates"));
     return false;
 
   case HTTP_UPDATE_OK:
-    consoleLog(F("Update OK"));
+    console.log(F("Update OK"));
     return true;
   default:
     return false;
@@ -534,7 +562,7 @@ void setup_JSON_CONFIG_OTA()
   // Initialize SPIFFS
   if (!SPIFFS.begin())
   {
-    Serial.println("Failed to initialize SPIFFS");
+    console.println("Failed to initialize SPIFFS");
   }
 
   // Handle HTTP POST request for config
@@ -550,7 +578,7 @@ void setup_JSON_CONFIG_OTA()
   JsonVariant v = config["json_config_ota_port"]; 
   int port = v.as<int>();
   // not working: port = 0
-  Serial.printf( "json_config_ota_port=%d\n", port);
+  console.printf( "json_config_ota_port=%d\n", port);
   if (port)
     server.begin( port);
   else
@@ -572,9 +600,9 @@ boolean connectWIFI()
   if (WiFi.SSID().length() > 0)
   {
     // Print the SSID and password
-    Serial.printf("WiFi credentials stored: %s\n", WiFi.SSID().c_str());
+    console.printf("WiFi credentials stored: %s\n", WiFi.SSID().c_str());
 
-    Serial.println(F("Connecting..."));
+    console.println(F("Connecting..."));
     WiFi.begin(WiFi.SSID(), WiFi.psk());
     WiFi.waitForConnectResult(FAST_CONNECTION_TIMEOUT);
   }
@@ -582,13 +610,13 @@ boolean connectWIFI()
 #ifdef WPS_CONFIG
   if (WiFi.status() != WL_CONNECTED)
   {
-    Serial.println(F("Starting WPS configuration..."));
+    console.println(F("Starting WPS configuration..."));
     WiFi.beginWPSConfig();
 
     if (WiFi.SSID().length() > 0)
     {
       // Print the SSID and password
-      Serial.printf("WPS credentials received: %s", WiFi.SSID().c_str());
+      console.printf("WPS credentials received: %s", WiFi.SSID().c_str());
 
       WiFi.begin(WiFi.SSID(), WiFi.psk());
       WiFi.persistent(true);
@@ -596,7 +624,7 @@ boolean connectWIFI()
       WiFi.setAutoReconnect(true);
       if (WiFi.waitForConnectResult() != WL_CONNECTED)
       {
-        Serial.println(F("Connecting using WPS failed!"));
+        console.println(F("Connecting using WPS failed!"));
         timeout_cb();
       }
     }
@@ -615,7 +643,7 @@ boolean connectWIFI()
       watchdog.detach();
       if (!wifiManager.startConfigPortal(SSID, NULL))
       {
-        Serial.println(F("Config Portal Failed!"));
+        console.println(F("Config Portal Failed!"));
         timeout_cb();
       }
     }
@@ -627,7 +655,7 @@ boolean connectWIFI()
       wifiManager.setAPCallback(configModeCallback);
       if (!wifiManager.autoConnect())
       {
-        Serial.println(F("Connection Failed!"));
+        console.println(F("Connection Failed!"));
         timeout_cb();
       }
 
@@ -639,7 +667,7 @@ boolean connectWIFI()
     // Save boot up time by not configuring them if they haven't changed
     if (WiFi.SSID() != WIFI_SSID)
     {
-      Serial.println(F("Initialising Wifi..."));
+      console.println(F("Initialising Wifi..."));
       WiFi.mode(WIFI_STA);
       WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
       WiFi.persistent(true);
@@ -651,7 +679,7 @@ boolean connectWIFI()
 
   if (WiFi.waitForConnectResult() != WL_CONNECTED)
   {
-    Serial.println(F("Connection Finally Failed!"));
+    console.println(F("Connection Finally Failed!"));
     timeout_cb();
   }
 
@@ -663,8 +691,8 @@ boolean connectWIFI()
   if (WiFi.status() == WL_CONNECTED)
   {
     // we have internet connection
-    Serial.print(F("IP address: "));
-    Serial.println(WiFi.localIP());
+    console.print(F("IP address: "));
+    console.println(WiFi.localIP());
     return true;
   }
   else
@@ -679,18 +707,17 @@ void setup()
   gdbstub_init();
 #endif
 
-  Serial.begin(115200);
-  console = &Serial; // use serial for now
+  console.begin(115200);
 
-  Serial.println(F("Booting"));
+  console.println(F("Booting"));
 
   // connect to WIFI depending on what connection features are enabled
   connectWIFI();
 
 #ifdef TELNET
+  console.println(F("Console output switching to Telnet!"));
   TelnetStream.begin();
-  console = &TelnetStream; // now use telnet instead
-  Serial.println(F("Console functions now via Telnet!"));
+  console.begin( TelnetStream) ;
 #else
 
 #endif
@@ -710,8 +737,8 @@ void setup()
 #ifdef JSON_CONFIG_OTA
   if (retrieveJSON(config, JSON_CONFIG_OTA_FILE))
   {
-    serializeJsonPretty(config, Serial);
-    Serial.println();
+    serializeJsonPretty(config, console);
+    console.println();
   }
 #endif
 
@@ -719,11 +746,11 @@ void setup()
   setup_NTP();
 #endif
 
-  consoleLog(F("Current firmware version: %s"), (HTTP_OTA_VERSION).c_str());
+  console.log(F("Current firmware version: %s"), (HTTP_OTA_VERSION).c_str());
 
   // Put your initialisation code here
 
-  Serial.println(F("Ready"));
+  console.println(F("Ready"));
   watchdog.detach();
 }
 
@@ -736,8 +763,8 @@ void run_demo() {
     DynamicJsonDocument response = performHttpsRequest("GET", config["http_api_base_url"],
                                                        "/api/breeds/image/random", config["http_api_username"], config["http_api_password"], "");
 
-    serializeJsonPretty(response, Serial);
-    Serial.println();
+    serializeJsonPretty(response, console);
+    console.println();
   }
 #endif
 
@@ -758,16 +785,16 @@ void run_demo() {
     int timeZone = (tmLocal->tm_hour - tmNow->tm_hour) * 3600 + (tmLocal->tm_min - tmNow->tm_min) * 60;
 
     // Parse ISO 8601 timestamp and convert to local time
-    Serial.println("ISO 8601 timestamp: " + timestampStr);
+    console.println("ISO 8601 timestamp: " + timestampStr);
     struct tm tmTimestamp;
     strptime(timestampStr.c_str(), "%Y-%m-%dT%H:%M:%S%z", &tmTimestamp);
     time_t utcTime = mktime(&tmTimestamp);
     time_t localTime = utcTime + timeZone; // add timezone offset
-    Serial.println("Local time: " + String(asctime(localtime(&localTime))));
+    console.println("Local time: " + String(asctime(localtime(&localTime))));
   }
 #endif
 
-  consoleLog(F("Free heap: %d Max Free Block: %d"), ESP.getFreeHeap(), ESP.getMaxFreeBlockSize());
+  console.log(F("Free heap: %d Max Free Block: %d"), ESP.getFreeHeap(), ESP.getMaxFreeBlockSize());
 
   #ifdef HTTP_OTA
     perform_HTTP_OTA_Update();
@@ -816,7 +843,7 @@ void loop()
 
 #ifdef DEEP_SLEEP_SECONDS
   // Enter DeepSleep
-  Serial.println(F("Sleeping..."));
+  console.println(F("Sleeping..."));
   ESP.deepSleep(DEEP_SLEEP_SECONDS * 1000000, WAKE_RF_DEFAULT);
   // Do nothing while we wait for sleep to overcome us
   while (true)
