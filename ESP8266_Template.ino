@@ -453,9 +453,9 @@ void setup_ArduinoOTA()
   ArduinoOTA.onStart([]()
                      {
       watchdog.detach();
-      console.println(F("Start")); });
+      console.println(F("OTA upload starting...")); });
   ArduinoOTA.onEnd([]()
-                   { console.println(F("\nEnd")); });
+                   { console.println(F("\nOTA upload finished")); });
   ArduinoOTA.onProgress([](unsigned int progress, unsigned int total)
                         { console.printf("Progress: %u%%\r", (progress / (total / 100))); });
   ArduinoOTA.onError([](ota_error_t error)
