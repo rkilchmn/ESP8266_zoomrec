@@ -69,12 +69,13 @@
 #define ARDUINO_OTA      // Enable Arduino IDE OTA updates
 #define HTTP_OTA         // Enable OTA updates from http server
 #define LED_STATUS_FLASH // Enable flashing LED status
-// #define DEEP_SLEEP_SECONDS  300       // Define for sleep period between process repeats. No sleep if not defined
+// #define DEEP_SLEEP_SECONDS  300       // Define for sleep timer_interval between process repeats. No sleep if not defined
+#define TIMER_INTERVAL_MILLIS 5000 // periodically execute code using non-blocking timer instead delay()
 #define JSON_CONFIG_OTA   // upload JSON config via OTA providing REST API
 #define GDB_DEBUG         // enable debugging using GDB using serial
 #define USE_NTP           // enable NTP
 #define HTTPS_REST_CLIENT // provide HTTPS REST client
-// #define TELNET                       // use telnet
+#define TELNET                       // use telnet
 
 #define FAST_CONNECTION_TIMEOUT 10000 // timeout for initial connection atempt
 
@@ -178,6 +179,10 @@ void timeout_cb()
   ESP.restart();
 #endif
 }
+
+#ifdef TIMER_INTERVAL_MILLIS
+  unsigned long timer_now = 0;
+#endif
 
 #ifdef LED_STATUS_FLASH
 
@@ -722,13 +727,7 @@ void setup()
   watchdog.detach();
 }
 
-void loop()
-{
-  // Watchdog timer - resets if setup takes longer than allocated time
-  watchdog.once(WATCHDOG_LOOP_SECONDS, &timeout_cb);
-
-  // put your main code here, to run repeatedly:
-
+void run_demo() {
 #ifdef HTTPS_REST_CLIENT
   // test http client
   if (!config.isNull() && config.containsKey("http_api_base_url"))
@@ -773,10 +772,21 @@ void loop()
   #ifdef HTTP_OTA
     perform_HTTP_OTA_Update();
   #endif
+}
 
-  delay(10000);
+#ifdef TIMER_INTERVAL_MILLIS
 
-  watchdog.detach();
+  void executeTimerCode() {
+    // put your main code here, to run repeatedly usinf non blocking timer
+    
+
+    run_demo();
+  }
+
+#endif
+
+void loop()
+{
 
 #ifdef ARDUINO_OTA
   // Handle any OTA upgrade
@@ -787,6 +797,22 @@ void loop()
   // Handle HTTP requests
   server.handleClient();
 #endif
+
+// Watchdog timer - resets if setup takes longer than allocated time
+  watchdog.once(WATCHDOG_LOOP_SECONDS, &timeout_cb);
+
+#ifdef TIMER_INTERVAL_MILLIS
+  // https://www.norwegiancreations.com/2018/10/arduino-tutorial-avoiding-the-overflow-issue-when-using-millis-and-micros/
+  if((unsigned long)(millis() - timer_now) > TIMER_INTERVAL_MILLIS){
+      timer_now = millis();
+      executeTimerCode();
+  }
+#else
+  // put your main code here, to run repeatedly:
+  
+#endif
+
+  watchdog.detach();
 
 #ifdef DEEP_SLEEP_SECONDS
   // Enter DeepSleep
