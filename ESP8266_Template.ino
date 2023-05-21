@@ -1,4 +1,7 @@
 /**
+ * Program received signal SIGSEGV, Segmentation fault. 0x4000df64 in ?? ()
+ * 
+ * 
  * ESP8266 project template with optional:
  *  - WiFi config portal - auto or manual trigger
  *  - OTA update - Arduino or web server
@@ -66,7 +69,9 @@
 // Optional functionality. Comment out defines to disable feature
 #define WIFI_PORTAL      // Enable WiFi config portal
 #define WPS_CONFIG       // press WPS bytton on wifi pathr
-#define ARDUINO_OTA      // Enable Arduino IDE OTA updates
+// #define ARDUINO_OTA: caused segfault after ca 30 min:
+// esp8266::MDNSImplementation::MDNSResponder::_readRRAnswer(esp8266::MDNSImplementation::MDNSResponder * const this, esp8266::MDNSImplementation::MDNSResponder::stcMDNS_RRAnswer *& p_rpRRAnswer) (/home/roger/.arduino15/packages/esp8266/hardware/esp8266/3.1.2/libraries/ESP8266mDNS/src/LEAmDNS_Transfer.cpp:527)
+// #define ARDUINO_OTA      // Enable Arduino IDE OTA updates
 #define HTTP_OTA         // Enable OTA updates from http server
 #define LED_STATUS_FLASH // Enable flashing LED status
 // #define DEEP_SLEEP_SECONDS  300       // Define for sleep timer_interval between process repeats. No sleep if not defined
