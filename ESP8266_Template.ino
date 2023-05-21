@@ -97,6 +97,8 @@ const char *WIFI_SSID = "SSID" const char *WIFI_PASSWORD = "password"
 #endif
 
 #ifdef TELNET
+  // requires mofification in TelnetStream.cpp to change scope from private to protected 
+  // for TelnetStreamBuffered class so access isConnected method
   #include "TelnetStreamBuffered.h"
 #endif
 
