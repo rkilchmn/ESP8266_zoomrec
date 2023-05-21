@@ -1,46 +1,67 @@
-#include <TelnetStream.h>
-#include "RingBuffer.h"
+#include "TelnetStreamBuffered.h"
 
-class TelnetStreamBuffered : public TelnetStreamClass {
-  protected:
-    RingBuffer buffer;
+TelnetStreamBuffered::TelnetStreamBuffered(uint16_t port) : TelnetStreamClass(port), overwriting(false) {}
 
-  public:
-    TelnetStreamBuffered(uint16_t port) : TelnetStreamClass(port) {}
-
-    size_t write(uint8_t val) {
-      if (disconnected()) {
-        buffer.push(val);
-        return 1;
-      }
-      flushBufferedData();
-      return TelnetStreamClass::write(val);
+size_t TelnetStreamBuffered::write(uint8_t val)
+{
+  if (disconnected())
+  {
+    if (!buffer.push(val) && !overwriting)
+    {
+      overwriting = true;
+      Serial.println("TelnetStreamBuffered: buffer is full; now overwriting old data");
     }
 
-    size_t write(const uint8_t *buf, size_t size) {
-      if (disconnected()) {
-        buffer.push(buf, size);
-        return size;
-      }
-      flushBufferedData();
-      return TelnetStreamClass::write(buf, size);
+    return 1; // we still have stored data
+  }
+  else
+  {
+    flushBufferedData();
+    return TelnetStreamClass::write(val);
+  }
+}
+
+size_t TelnetStreamBuffered::write(const uint8_t *buf, size_t size)
+{
+  if (disconnected())
+  {
+    bool isFull = false;
+    for (size_t i = 0; i < size; i++)
+      isFull = !buffer.push(buf[i]);
+    if (isFull && !overwriting)
+    {
+      overwriting = true;
+      Serial.println("TelnetStreamBuffered: buffer is full; now overwriting old data");
     }
 
-    void flush() {
-      flushBufferedData();
-      TelnetStreamClass::flush();
-    }
+    return size; // we still have stored data
+  }
+  else
+  {
+    flushBufferedData();
+    return TelnetStreamClass::write(buf, size);
+  }
+}
 
-  private:
-    void flushBufferedData() {
-      size_t bufferSize = buffer.size();
-      if (bufferSize > 0) {
-        uint8_t *data = new uint8_t[bufferSize];
-        size_t bytesRead = buffer.read(data, bufferSize);
-        TelnetStreamClass::write(data, bytesRead);
-        delete[] data;
-      }
-    }
-};
+void TelnetStreamBuffered::flush()
+{
+  if (!disconnected())
+  {
+    flushBufferedData();
+    TelnetStreamClass::flush();
+  }
+}
 
-TelnetStreamBuffered BufferedTelenetStream(23);
+void TelnetStreamBuffered::flushBufferedData()
+{
+  int flushed = 0;
+  while (!buffer.isEmpty())
+    flushed += TelnetStreamClass::write(buffer.shift());
+  if (flushed > 0)
+  {
+    overwriting = false;
+    Serial.printf("TelnetStreamBuffered: flushed buffer %d\n", flushed);
+  }
+}
+
+TelnetStreamBuffered BufferedTelnetStream(23);

@@ -1,24 +1,26 @@
 #ifndef TELNETSTREAMBUFFERED_H
 #define TELNETSTREAMBUFFERED_H
 
-#include "TelnetStream.h" 
-#include "RingBuffer.h" 
+#include <Arduino.h>
+#include <TelnetStream.h>
+#include <CircularBuffer.h>
 
 class TelnetStreamBuffered : public TelnetStreamClass {
-  private:
-    RingBuffer buffer;
+protected:
+  CircularBuffer<uint8_t, 512> buffer;
 
-  public:
-    TelnetStreamBuffered(uint16_t port);
+  boolean overwriting; 
+public:
+  TelnetStreamBuffered(uint16_t port);
 
-    size_t write(uint8_t val) override;
-    size_t write(const uint8_t *buf, size_t size) override;
-    void flush() override;
+  size_t write(uint8_t val);
+  size_t write(const uint8_t *buf, size_t size);
+  void flush();
 
-  private:
-    void flushBufferedData();
+private:
+  void flushBufferedData();
 };
 
-extern TelnetStreamBuffered BufferedTelenetStream;
+extern TelnetStreamBuffered BufferedTelnetStream;
 
-#endif // TelnetStreamBuffered_H
+#endif // TELNETSTREAMBUFFERED_H

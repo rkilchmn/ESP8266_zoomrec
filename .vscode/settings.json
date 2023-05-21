@@ -12,6 +12,7 @@
         "ranges": "cpp",
         "chrono": "cpp",
         "cmath": "cpp",
-        "random": "cpp"
+        "random": "cpp",
+        "*.tpp": "cpp"
     }
 }

@@ -726,8 +726,8 @@ void setup()
 
 #ifdef TELNET
   console.println(F("Console output switching to Telnet!"));
-  BufferedTelenetStream.begin();
-  console.begin( BufferedTelenetStream) ;
+  BufferedTelnetStream.begin();
+  console.begin( BufferedTelnetStream) ;
 #else
 
 #endif
