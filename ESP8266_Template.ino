@@ -91,6 +91,10 @@ WiFiManager wifiManager;
 const char *WIFI_SSID = "SSID" const char *WIFI_PASSWORD = "password"
 #endif
 
+#ifdef TELNET
+  #include "TelnetStreamBuffered.h"
+#endif
+
 class Console : public Stream {
 private:
   Stream* currentStream;
@@ -336,7 +340,6 @@ String useConfig(const char *configKey, String defaultValue)
 // from https://werner.rothschopf.net/202011_arduino_esp8266_ntp_en.htm
 #define NTP_SERVER "pool.ntp.org"
 // Timezone definition https://github.com/nayarsystems/posix_tz_db/blob/master/zones.csv
-
 #define NTP_DEFAULT_TIME_ZONE TZ_Europe_London
 
 boolean ntp_set = false; // has ntp time been set
@@ -439,9 +442,7 @@ DynamicJsonDocument performHttpsRequest(const char *method, const char *url, con
 
 #endif
 
-#ifdef TELNET
-#include <TelnetStream.h>
-#endif
+
 
 #ifdef ARDUINO_OTA
 void setup_ArduinoOTA()
@@ -725,8 +726,8 @@ void setup()
 
 #ifdef TELNET
   console.println(F("Console output switching to Telnet!"));
-  TelnetStream.begin();
-  console.begin( TelnetStream) ;
+  BufferedTelenetStream.begin();
+  console.begin( BufferedTelenetStream) ;
 #else
 
 #endif

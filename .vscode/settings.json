@@ -11,6 +11,7 @@
         "initializer_list": "cpp",
         "ranges": "cpp",
         "chrono": "cpp",
-        "cmath": "cpp"
+        "cmath": "cpp",
+        "random": "cpp"
     }
 }
