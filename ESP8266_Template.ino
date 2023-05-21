@@ -97,33 +97,40 @@ const char *WIFI_SSID = "SSID" const char *WIFI_PASSWORD = "password"
 
 class Console : public Stream {
 private:
-  Stream* currentStream;
+  Stream* primaryStream;
+  Stream* SecondaryOutputStream; // backup for output e.g. keep sending to Serial
 
 public:
   // Constructor
   Console() {
-    currentStream = &Serial;
+    primaryStream = &Serial;
+    SecondaryOutputStream = nullptr;
   }
 
   // Required Stream functions to implement
   virtual size_t write(uint8_t data) {
+    
+    // write to secondary output
+    if (SecondaryOutputStream != nullptr)
+      SecondaryOutputStream->write(data);
+
     // Print the data to the current stream
-    return currentStream->write(data);
+    return primaryStream->write(data);
   }
 
   virtual int available() {
     // Check the availability of input data on the current stream
-    return currentStream->available();
+    return primaryStream->available();
   }
 
   virtual int read() {
     // Read a byte of data from the current stream
-    return currentStream->read();
+    return primaryStream->read();
   }
 
   virtual int peek() {
     // Peek at the next byte of input data from the current stream
-    return currentStream->peek();
+    return primaryStream->peek();
   }
 
   // Additional functions from Stream that can be implemented if needed
@@ -132,12 +139,18 @@ public:
   // Function to begin with Serial
   void begin(unsigned long baudRate) {
     Serial.begin(baudRate);
-    currentStream = &Serial;
+    primaryStream = &Serial;
   }
 
   // Function to begin with a stream e.g. TelnetStream
-  void begin(Stream& stream) {
-    currentStream = &stream;
+  void begin( Stream& primary, Stream& secondOutput) {
+    primaryStream = &primary;
+    SecondaryOutputStream = &secondOutput;
+  }
+
+  // Function to begin with a stream e.g. TelnetStream
+  void begin( Stream& primary) {
+    primaryStream = &primary;
   }
 
   void log(const __FlashStringHelper *format, ...)
@@ -151,13 +164,13 @@ public:
     char temp[100];
     strftime(temp, sizeof(temp), "%Y-%m-%d %H:%M:%S ", tm);
 
-    currentStream->print(temp);
+    print(temp);
     va_list arg;
     va_start(arg, format);
     vsnprintf(temp, sizeof(temp), fmt, arg);
     va_end(arg);
-    currentStream->print(temp);
-    currentStream->print("\n");
+    print(temp);
+    print("\n");
   }
 
   // // Function to log messages
@@ -725,9 +738,9 @@ void setup()
   connectWIFI();
 
 #ifdef TELNET
-  console.println(F("Console output switching to Telnet!"));
+  console.println(F("Switching primary console to Telnet! Continue output to Serial."));
   BufferedTelnetStream.begin();
-  console.begin( BufferedTelnetStream) ;
+  console.begin( BufferedTelnetStream, Serial); // continue output to Serial
 #else
 
 #endif
