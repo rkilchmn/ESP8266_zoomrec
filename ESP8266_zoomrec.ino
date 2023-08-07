@@ -1,7 +1,7 @@
 /**
  * Program received signal SIGSEGV, Segmentation fault. 0x4000df64 in ?? ()
- * 
- * 
+ *
+ *
  * ESP8266 project template with optional:
  *  - WiFi config portal - auto or manual trigger
  *  - OTA update - Arduino or web server
@@ -67,20 +67,20 @@
 //     (snprintf(strBuf, sizeof(strBuf), format, ##__VA_ARGS__) >= 0 ? strBuf : ((strBuf[0] = '\0'), strBuf))
 
 // Optional functionality. Comment out defines to disable feature
-#define WIFI_PORTAL      // Enable WiFi config portal
-#define WPS_CONFIG       // press WPS bytton on wifi pathr
+#define WIFI_PORTAL // Enable WiFi config portal
+#define WPS_CONFIG  // press WPS bytton on wifi pathr
 // #define ARDUINO_OTA: caused segfault after ca 30 min:
 // esp8266::MDNSImplementation::MDNSResponder::_readRRAnswer(esp8266::MDNSImplementation::MDNSResponder * const this, esp8266::MDNSImplementation::MDNSResponder::stcMDNS_RRAnswer *& p_rpRRAnswer) (/home/roger/.arduino15/packages/esp8266/hardware/esp8266/3.1.2/libraries/ESP8266mDNS/src/LEAmDNS_Transfer.cpp:527)
 // #define ARDUINO_OTA      // Enable Arduino IDE OTA updates
 #define HTTP_OTA         // Enable OTA updates from http server
 #define LED_STATUS_FLASH // Enable flashing LED status
-// #define DEEP_SLEEP_SECONDS  300       // Define for sleep timer_interval between process repeats. No sleep if not defined
+#define DEEP_SLEEP_SECONDS  10       // Define for sleep timer_interval between process repeats. No sleep if not defined
 #define TIMER_INTERVAL_MILLIS 5000 // periodically execute code using non-blocking timer instead delay()
-#define JSON_CONFIG_OTA   // upload JSON config via OTA providing REST API
-#define GDB_DEBUG         // enable debugging using GDB using serial
-#define USE_NTP           // enable NTP
-#define HTTPS_REST_CLIENT // provide HTTPS REST client
-#define TELNET            // use telnet
+#define JSON_CONFIG_OTA            // upload JSON config via OTA providing REST API
+#define GDB_DEBUG                  // enable debugging using GDB using serial
+#define USE_NTP                    // enable NTP
+#define HTTPS_REST_CLIENT          // provide HTTPS REST client
+#define TELNET                     // use telnet
 
 #define FAST_CONNECTION_TIMEOUT 10000 // timeout for initial connection atempt
 
@@ -97,26 +97,30 @@ const char *WIFI_SSID = "SSID" const char *WIFI_PASSWORD = "password"
 #endif
 
 #ifdef TELNET
-  // requires mofification in TelnetStream.cpp to change scope from private to protected 
-  // for TelnetStreamBuffered class so access isConnected method
-  #include "TelnetStreamBuffered.h"
+// requires mofification in TelnetStream.cpp to change scope from private to protected
+// for TelnetStreamBuffered class so access isConnected method
+#include "TelnetStreamBuffered.h"
+#define TELNET_DEFAULT_PORT 23
 #endif
 
-class Console : public Stream {
+class Console : public Stream
+{
 private:
-  Stream* primaryStream;
-  Stream* SecondaryOutputStream; // backup for output e.g. keep sending to Serial
+  Stream *primaryStream;
+  Stream *SecondaryOutputStream; // backup for output e.g. keep sending to Serial
 
 public:
   // Constructor
-  Console() {
+  Console()
+  {
     primaryStream = &Serial;
     SecondaryOutputStream = nullptr;
   }
 
   // Required Stream functions to implement
-  virtual size_t write(uint8_t data) {
-    
+  virtual size_t write(uint8_t data)
+  {
+
     // write to secondary output
     if (SecondaryOutputStream != nullptr)
       SecondaryOutputStream->write(data);
@@ -125,17 +129,20 @@ public:
     return primaryStream->write(data);
   }
 
-  virtual int available() {
+  virtual int available()
+  {
     // Check the availability of input data on the current stream
     return primaryStream->available();
   }
 
-  virtual int read() {
+  virtual int read()
+  {
     // Read a byte of data from the current stream
     return primaryStream->read();
   }
 
-  virtual int peek() {
+  virtual int peek()
+  {
     // Peek at the next byte of input data from the current stream
     return primaryStream->peek();
   }
@@ -144,19 +151,22 @@ public:
   // ...
 
   // Function to begin with Serial
-  void begin(unsigned long baudRate) {
+  void begin(unsigned long baudRate)
+  {
     Serial.begin(baudRate);
     primaryStream = &Serial;
   }
 
   // Function to begin with a stream e.g. TelnetStream
-  void begin( Stream& primary, Stream& secondOutput) {
+  void begin(Stream &primary, Stream &secondOutput)
+  {
     primaryStream = &primary;
     SecondaryOutputStream = &secondOutput;
   }
 
   // Function to begin with a stream e.g. TelnetStream
-  void begin( Stream& primary) {
+  void begin(Stream &primary)
+  {
     primaryStream = &primary;
   }
 
@@ -187,7 +197,6 @@ public:
   //   print(args...);
   //   println();
   // }
-
 };
 
 Console console;
@@ -219,6 +228,21 @@ Console console;
 #define HTTP_OTA_VERSION String(__FILE__) + "-" + String(__DATE__) + "-" + String(__TIME__)
 #endif
 
+// Sample configuration file
+// {
+//     "http_api_username": "test",
+//     "http_api_password": "test123",
+//     "http_api_base_url": "https://dog.ceo",
+//     "timezone_ntp" : "AEST-10AEDT,M10.1.0,M4.1.0/3",
+//     "http_ota_url": "http://192.168.0.237:8080/firmware",
+//     "http_ota_username": "myuser",
+//     "http_ota_password": "mypassword",
+//     "json_config_ota_username": "admin",
+//     "json_config_ota_password": "admin123",
+//     "json_config_ota_port": 8080,
+//     "json_config_ota_path": "/config",
+//     "telnet_port": 23   
+// }
 #ifdef JSON_CONFIG_OTA
 #include <FS.h>
 #include <ESP8266WebServer.h>
@@ -264,7 +288,8 @@ const uint8 WATCHDOG_LOOP_SECONDS = 20;  // Loop should complete well within thi
 void timeout_cb()
 {
   // This sleep happened because of timeout. Do a restart after a sleep
-  console.println(F("Watchdog timeout..."));
+  console.println(F("Watchdog timeout...restarting"));
+  console.flush();
 
 #ifdef DEEP_SLEEP_SECONDS
   // Enter DeepSleep so that we don't exhaust our batteries by countinuously trying to
@@ -282,7 +307,7 @@ void timeout_cb()
 }
 
 #ifdef TIMER_INTERVAL_MILLIS
-  unsigned long timer_now = 0;
+unsigned long timer_now = 0;
 #endif
 
 #ifdef LED_STATUS_FLASH
@@ -335,7 +360,7 @@ boolean retrieveJSON(DynamicJsonDocument &doc, String filename)
   return !error;
 }
 
-const char *useConfig( const char *configKey, const char *defaultValue)
+const char *useConfig(const char *configKey, const char *defaultValue)
 {
   if (!config.isNull() && config.containsKey(configKey))
     return config[configKey];
@@ -462,8 +487,6 @@ DynamicJsonDocument performHttpsRequest(const char *method, const char *url, con
 
 #endif
 
-
-
 #ifdef ARDUINO_OTA
 void setup_ArduinoOTA()
 {
@@ -508,7 +531,7 @@ boolean perform_HTTP_OTA_Update()
 
   // use authorization?
   if (!http_ota_username.isEmpty() && !http_ota_password.isEmpty())
-    ESPhttpUpdate.setAuthorization( http_ota_username, http_ota_password);
+    ESPhttpUpdate.setAuthorization(http_ota_username, http_ota_password);
 
   switch (ESPhttpUpdate.update(client, http_ota_url, HTTP_OTA_VERSION))
   {
@@ -534,8 +557,8 @@ boolean perform_HTTP_OTA_Update()
 void setup_NTP()
 {
   settimeofday_cb(time_is_set); // optional: callback if time was sent
-  if (!config.isNull() && config.containsKey("timezone"))
-    configTime(config["timezone"], NTP_SERVER);
+  if (!config.isNull() && config.containsKey("timezone_ntp"))
+    configTime(config["timezone_ntp"], NTP_SERVER);
   else
     configTime(NTP_DEFAULT_TIME_ZONE, NTP_SERVER);
 }
@@ -546,8 +569,8 @@ ESP8266WebServer server(JSON_CONFIG_OTA_PORT);
 
 void handleConfig()
 {
-  if (!server.authenticate( useConfig( "json_config_ota_username", JSON_CONFIG_USERNAME), 
-                            useConfig( "json_config_ota_password", JSON_CONFIG_PASSWD)))
+  if (!server.authenticate(useConfig("json_config_ota_username", JSON_CONFIG_USERNAME),
+                           useConfig("json_config_ota_password", JSON_CONFIG_PASSWD)))
   {
     return server.requestAuthentication();
   }
@@ -568,7 +591,11 @@ void handleConfig()
       {
         serializeJson(doc, configFile);
         configFile.close();
+        // re-read from filesystem & output
         retrieveJSON(config, JSON_CONFIG_OTA_FILE); // refresh config
+        console.log(F("OTA Config update received from IP: %s"), server.client().remoteIP().toString().c_str());
+        serializeJsonPretty(config, console);
+        console.println();
         server.send(200);
       }
       else
@@ -589,14 +616,8 @@ void handleConfig()
 
 void setup_JSON_CONFIG_OTA()
 {
-  // Initialize SPIFFS
-  if (!SPIFFS.begin())
-  {
-    console.println("Failed to initialize SPIFFS");
-  }
-
   // Handle HTTP POST request for config
-  server.on( useConfig( "json_config_ota_path", JSON_CONFIG_OTA_PATH), handleConfig);
+  server.on(useConfig("json_config_ota_path", JSON_CONFIG_OTA_PATH), handleConfig);
 
   // list of headers to be parsed
   const char *headerkeys[] = {"Content-Type"};
@@ -605,12 +626,10 @@ void setup_JSON_CONFIG_OTA()
   server.collectHeaders(headerkeys, headerkeyssize);
 
   // Start server
-  JsonVariant v = config["json_config_ota_port"]; 
-  int port = v.as<int>();
-  // not working: port = 0
-  console.printf( "json_config_ota_port=%d\n", port);
+  int port = config["json_config_ota_port"].as<int>();
+  console.printf("Starting Config OTA Server on port: %d\n", port);
   if (port)
-    server.begin( port);
+    server.begin(port);
   else
     server.begin();
 }
@@ -738,19 +757,32 @@ void setup()
 #endif
 
   console.begin(115200);
-
+  console.println(); // newline after garbage from startup
   console.println(F("Booting"));
+
+  // Initialize SPIFFS and read config
+  if (!SPIFFS.begin())
+    console.println("Failed to initialize SPIFFS");
+  else
+    retrieveJSON(config, JSON_CONFIG_OTA_FILE);
 
   // connect to WIFI depending on what connection features are enabled
   connectWIFI();
 
 #ifdef TELNET
-  console.println(F("Switching primary console to Telnet! Continue output to Serial."));
-  BufferedTelnetStream.begin();
-  console.begin( BufferedTelnetStream, Serial); // continue output to Serial
-#else
-
+  int port = config["telnet_port"].as<int>();
+  port = (port) ? port : TELNET_DEFAULT_PORT; 
+  console.printf("Telnet service started on port: %d\n", port);
+  BufferedTelnetStream.begin(port);
+  console.begin(BufferedTelnetStream, Serial); // continue output to Serial
 #endif
+
+  // Print config
+  if (config != nullptr)
+  {
+    serializeJsonPretty(config, console);
+    console.println();
+  }
 
 #ifdef HTTP_OTA
   perform_HTTP_OTA_Update();
@@ -762,14 +794,6 @@ void setup()
 
 #ifdef JSON_CONFIG_OTA
   setup_JSON_CONFIG_OTA();
-#endif
-
-#ifdef JSON_CONFIG_OTA
-  if (retrieveJSON(config, JSON_CONFIG_OTA_FILE))
-  {
-    serializeJsonPretty(config, console);
-    console.println();
-  }
 #endif
 
 #ifdef USE_NTP
@@ -784,7 +808,8 @@ void setup()
   watchdog.detach();
 }
 
-void run_demo() {
+void run_demo()
+{
 #ifdef HTTPS_REST_CLIENT
   // test http client
   if (!config.isNull() && config.containsKey("http_api_base_url"))
@@ -826,19 +851,19 @@ void run_demo() {
 
   console.log(F("Free heap: %d Max Free Block: %d"), ESP.getFreeHeap(), ESP.getMaxFreeBlockSize());
 
-  #ifdef HTTP_OTA
-    perform_HTTP_OTA_Update();
-  #endif
+#ifdef HTTP_OTA
+  perform_HTTP_OTA_Update();
+#endif
 }
 
 #ifdef TIMER_INTERVAL_MILLIS
 
-  void executeTimerCode() {
-    // put your main code here, to run repeatedly usinf non blocking timer
-    
+void executeTimerCode()
+{
+  // put your main code here, to run repeatedly usinf non blocking timer
 
-    run_demo();
-  }
+  run_demo();
+}
 
 #endif
 
@@ -855,18 +880,19 @@ void loop()
   server.handleClient();
 #endif
 
-// Watchdog timer - resets if setup takes longer than allocated time
+  // Watchdog timer - resets if setup takes longer than allocated time
   watchdog.once(WATCHDOG_LOOP_SECONDS, &timeout_cb);
 
 #ifdef TIMER_INTERVAL_MILLIS
   // https://www.norwegiancreations.com/2018/10/arduino-tutorial-avoiding-the-overflow-issue-when-using-millis-and-micros/
-  if((unsigned long)(millis() - timer_now) > TIMER_INTERVAL_MILLIS){
-      timer_now = millis();
-      executeTimerCode();
+  if ((unsigned long)(millis() - timer_now) > TIMER_INTERVAL_MILLIS)
+  {
+    timer_now = millis();
+    executeTimerCode();
   }
 #else
   // put your main code here, to run repeatedly:
-  
+
 #endif
 
   watchdog.detach();
