@@ -77,11 +77,11 @@
 #define WIFI_PORTAL // Enable WiFi config portal
 #define WPS_CONFIG  // press WPS bytton on wifi pathr
 // #define ARDUINO_OTA: caused segfault after ca 30 min:
-// esp8266::MDNSImplementation::MDNSResponder::_readRRAnswer(esp8266::MDNSImplementation::MDNSResponder * const this, esp8266::MDNSImplementation::MDNSResponder::stcMDNS_RRAnswer *& p_rpRRAnswer) (/home/roger/.arduino15/packages/esp8266/hardware/esp8266/3.1.2/libraries/ESP8266mDNS/src/LEAmDNS_Transfer.cpp:527)
+
 // #define ARDUINO_OTA      // Enable Arduino IDE OTA updates
 #define HTTP_OTA         // Enable OTA updates from http server
 #define LED_STATUS_FLASH // Enable flashing LED status
-#define DEEP_SLEEP_SECONDS  10     // Define for sleep timer_interval between process repeats. No sleep if not defined
+// #define DEEP_SLEEP_SECONDS  10     // Define for sleep timer_interval between process repeats. No sleep if not defined
 #define DEEP_SLEEP_STARTUP_SECONDS  60     // do not fall into deep sleep after normal startup, to allow for OTA updates
 #define TIMER_INTERVAL_MILLIS 5000 // periodically execute code using non-blocking timer instead delay()
 #define JSON_CONFIG_OTA            // upload JSON config via OTA providing REST API
@@ -422,6 +422,22 @@ boolean retrieveJSON(DynamicJsonDocument &doc, String filename)
   return !error;
 }
 
+int hasConfig(const char *configKey)
+{
+  if (!config.isNull() && config.containsKey(configKey))
+    return true;
+  else
+    return false;
+}
+
+int useConfig(const char *configKey, int defaultValue)
+{
+  if (!config.isNull() && config.containsKey(configKey))
+    return config[configKey].as<int>();
+  else
+    return defaultValue;
+}
+
 const char *useConfig(const char *configKey, const char *defaultValue)
 {
   if (!config.isNull() && config.containsKey(configKey))
@@ -430,13 +446,13 @@ const char *useConfig(const char *configKey, const char *defaultValue)
     return defaultValue;
 }
 
-String useConfig(const char *configKey, String defaultValue)
-{
-  if (!config.isNull() && config.containsKey(configKey))
-    return config[configKey].as<String>();
-  else
-    return defaultValue;
-}
+// String useConfig(const char *configKey, String defaultValue)
+// {
+//   if (!config.isNull() && config.containsKey(configKey))
+//     return config[configKey].as<String>();
+//   else
+//     return defaultValue;
+// }
 
 #endif
 
@@ -477,23 +493,33 @@ uint32_t sntp_update_delay_MS_rfc_not_less_than_15000()
 #include <ESP8266HTTPClient.h>
 #include <WiFiClientSecure.h>
 #include <ArduinoJson.h>
+#include <UrlEncode.h> // https://github.com/plageoj/urlencode
 
 // Define a function to send an HTTPS request with basic authentication
 DynamicJsonDocument performHttpsRequest(const char *method, const char *url, const char *path,
                                         const char *http_username, const char *http_password, const char *tls_fingerprint, size_t response_capacity = 1024,
                                         DynamicJsonDocument *requestBody = nullptr)
 {
+  WiFiClient client;
 
-  // Initialize the WiFi client with SSL/TLS support
-  WiFiClientSecure client;
-  if (strlen(tls_fingerprint) > 0)
-    client.setFingerprint(tls_fingerprint);
-  else
-    client.setInsecure();
+  if (strncmp(url, "https", 5) == 0) {
+    // Use WiFiClientSecure for HTTPS requests
+    WiFiClientSecure secureClient;
+  
+    if (strlen(tls_fingerprint) > 0)
+      secureClient.setFingerprint(tls_fingerprint);
+    else
+      secureClient.setInsecure();
+
+    client = secureClient;
+  }
 
   // Initialize the HTTP client with the WiFi client and server/port
   HTTPClient http;
-  http.begin(client, String(url) + String(path));
+  String uri = String(url) + String(path);
+  http.begin(client, uri);
+
+  console.log(Console::DEBUG, F("HTTP Rest Request: %s %s"), method, uri.c_str());
 
   // Set the HTTP request headers with the basic authentication credentials
   String auth = String(http_username) + ":" + String(http_password);
@@ -522,7 +548,7 @@ DynamicJsonDocument performHttpsRequest(const char *method, const char *url, con
   else
   {
     // Invalid HTTP method
-    httpCode = -1;
+    httpCode = -99; // not official code
   }
 
   DynamicJsonDocument response(response_capacity);
@@ -539,7 +565,7 @@ DynamicJsonDocument performHttpsRequest(const char *method, const char *url, con
   }
   else
   {
-    console.log(Console::ERROR, F("HTTP error code: %d"), httpCode);
+    console.log(Console::ERROR, F("HTTP error: (%d) %s"), httpCode, http.errorToString(httpCode).c_str());
   }
 
   // Release the resources used by the HTTP client
@@ -830,7 +856,10 @@ String getResetReasonString(uint8_t reason) {
 }
 
 
-// Put any project specific initialisation here
+// Put any project specific code here
+const int inputPinResetSwitch = D1;
+const int outputPinPowerButton = D2;
+int lastStatus = LOW;
 
 void setup()
 {
@@ -898,60 +927,138 @@ void setup()
   setup_NTP();
 #endif
 
+#ifdef HTTP_OTA
+  perform_HTTP_OTA_Update();
+#endif
+
   console.log(Console::INFO, F("Current firmware version: '%s'"), (HTTP_OTA_VERSION).c_str());
 
   // Put your initialisation code here
+  pinMode(inputPinResetSwitch, INPUT_PULLUP);
+  pinMode(outputPinPowerButton, OUTPUT);
 
   console.log(Console::DEBUG, F("End of initialization"));
   watchdog.detach();
 }
 
+time_t convertISO8601ToUnixTime(const char* isoTimestamp) {
+  struct tm timeinfo;
+  memset(&timeinfo, 0, sizeof(timeinfo));
+
+  // Parse the ISO8601 timestamp
+  sscanf(isoTimestamp, "%4d-%2d-%2dT%2d:%2d:%2d",
+         &timeinfo.tm_year, &timeinfo.tm_mon, &timeinfo.tm_mday,
+         &timeinfo.tm_hour, &timeinfo.tm_min, &timeinfo.tm_sec,
+         &timeinfo.tm_hour, &timeinfo.tm_min);
+
+  // Adjust year and month for struct tm format
+  timeinfo.tm_year -= 1900;
+  timeinfo.tm_mon -= 1;
+
+  // Convert to Unix time
+  time_t unixTime = mktime(&timeinfo);
+
+  return unixTime;
+}
+
+const char* unixTimestampToISO8601(time_t unixTimestamp, char* iso8601Time, size_t bufferSize) {
+  struct tm *tmStruct = localtime(&unixTimestamp);
+  snprintf(iso8601Time, bufferSize, "%04d-%02d-%02dT%02d:%02d:%02d",
+           tmStruct->tm_year + 1900, tmStruct->tm_mon + 1, tmStruct->tm_mday,
+           tmStruct->tm_hour, tmStruct->tm_min, tmStruct->tm_sec);
+  return iso8601Time;
+}
+
+bool isPCRunning() {
+  return digitalRead( inputPinResetSwitch) == HIGH;
+}
+
+void togglePowerButton() {
+    digitalWrite(outputPinPowerButton, HIGH);
+    delay(150);
+    digitalWrite(outputPinPowerButton, LOW);
+}
+
+void startPC() {
+  if (!isPCRunning()) 
+    togglePowerButton();
+}
+
+void shutDownPC() {
+   if (isPCRunning()) 
+    togglePowerButton();
+}
+
 void run_demo()
 {
+
+  console.log(Console::DEBUG, F("PC status: %s"), isPCRunning() ? "true" : "false");
+
 #ifdef HTTPS_REST_CLIENT
   // test http client
-  if (!config.isNull() && config.containsKey("http_api_base_url"))
-  {
-    // call API
-    DynamicJsonDocument response = performHttpsRequest("GET", config["http_api_base_url"],
-                                                       "/api/breeds/image/random", config["http_api_username"], config["http_api_password"], "");
-
-    serializeJsonPretty(response, console);
-    console.println();
+  if (!hasConfig("http_api_base_url") || (!hasConfig("timezone"))) {
+    console.log(Console::CRITICAL, F("Config 'http_api_base_url' or 'timezone' missing."));
   }
-#endif
+  else {
+    // API route
+    char path[100];
+    snprintf(path, sizeof(path), "/event/next?astimezone=%s&leadinsecs=%d&leadoutsecs=%d", 
+      urlEncode( useConfig("timezone", "")).c_str(), useConfig("leadin_secs", 60), useConfig("leadout_secs", 60));
 
-#ifdef USE_NTP
-  if (ntp_set)
-  {
-    // ISO 8601 timestamp
-    const char *timestampStr = "2023-05-01T14:30:00+02:00";
-    // Get current UTC time
-    time_t now = time(nullptr);
-    struct tm *tmNow = gmtime(&now);
+    DynamicJsonDocument response = performHttpsRequest("GET", useConfig("http_api_base_url", ""), path, 
+      config["http_api_username"], config["http_api_password"], "");
 
-    // Get current local time
-    time_t localNow = mktime(tmNow);
-    struct tm *tmLocal = localtime(&localNow);
+    bool eventOngoing = false;
+    if (response.isNull()) {
+      console.log(Console::DEBUG, F("response for /event/next is empty"));
+    }
+    else {
+      serializeJsonPretty(response, console);
+      console.println();
+      
+      // extract
+      char startStr[30];
+      char endStr[30];
 
-    // Calculate time zone offset in seconds
-    int timeZone = (tmLocal->tm_hour - tmNow->tm_hour) * 3600 + (tmLocal->tm_min - tmNow->tm_min) * 60;
+      strcpy ( startStr, response["start_astimezone"]);
+      strcpy ( endStr, response["end_astimezone"]);     
 
-    // Parse ISO 8601 timestamp and convert to local time
-    console.log(Console::INFO, F("ISO 8601 timestamp: %s"), timestampStr);
-    struct tm tmTimestamp;
-    strptime(timestampStr, "%Y-%m-%dT%H:%M:%S%z", &tmTimestamp);
-    time_t utcTime = mktime(&tmTimestamp);
-    time_t localTime = utcTime + timeZone; // add timezone offset
-    console.log(Console::INFO, F("Local time: %s"), asctime(localtime(&localTime)));
+      if ((startStr == nullptr || *startStr == '\0') || 
+          (endStr == nullptr || *endStr == '\0')) {
+        console.log(Console::DEBUG, F("response does not contain start_astimezone or end_astimezone"));
+      }
+      else {
+        // Convert ISO 8601 timestamps to time_t (Unix timestamp)
+        time_t startTime = convertISO8601ToUnixTime(startStr);
+        time_t endTime = convertISO8601ToUnixTime(endStr);
+        
+        // Get current UTC time
+        time_t currentTime = time(nullptr);
+        
+        // Check if the event has started and has not yet ended
+        if ((currentTime >= startTime) && (currentTime <= endTime)) 
+          eventOngoing = true;
+      }
+    }
+    
+    if (eventOngoing) {
+      console.log(Console::DEBUG, F("Event ongoing..."));
+      if (!isPCRunning()) {
+        startPC();
+        console.log(Console::DEBUG, F("Starting PC..."));
+      }
+    } 
+    else {
+      console.log(Console::DEBUG, F("No event ongoing..."));
+      if (isPCRunning()) {
+        shutDownPC();
+        console.log(Console::DEBUG, F("Shutting down PC..."));
+      }
+    }
   }
 #endif
 
   console.log(Console::DEBUG, F("Free heap: %d Max Free Block: %d"), ESP.getFreeHeap(), ESP.getMaxFreeBlockSize());
-
-#ifdef HTTP_OTA
-  perform_HTTP_OTA_Update();
-#endif
 }
 
 #ifdef TIMER_INTERVAL_MILLIS
@@ -959,7 +1066,6 @@ void run_demo()
 void executeTimerCode()
 {
   // put your main code here, to run repeatedly usinf non blocking timer
-
   run_demo();
 }
 
@@ -980,6 +1086,10 @@ void loop()
 
   // Watchdog timer - resets if setup takes longer than allocated time
   watchdog.once(WATCHDOG_LOOP_SECONDS, &timeout_cb);
+
+#ifdef USE_NTP
+  // do not start processing main loop until NTP time is set
+  if (ntp_set) {
 
 #ifdef TIMER_INTERVAL_MILLIS
   // https://www.norwegiancreations.com/2018/10/arduino-tutorial-avoiding-the-overflow-issue-when-using-millis-and-micros/
@@ -1012,6 +1122,8 @@ void loop()
     while (true)
     {
     };
+  }
+#endif
   }
 #endif
 }

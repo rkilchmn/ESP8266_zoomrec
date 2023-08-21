@@ -13,6 +13,7 @@
         "chrono": "cpp",
         "cmath": "cpp",
         "random": "cpp",
-        "*.tpp": "cpp"
+        "*.tpp": "cpp",
+        "cstdio": "cpp"
     }
 }
