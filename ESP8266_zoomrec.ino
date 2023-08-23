@@ -81,7 +81,7 @@
 // #define ARDUINO_OTA      // Enable Arduino IDE OTA updates
 #define HTTP_OTA         // Enable OTA updates from http server
 #define LED_STATUS_FLASH // Enable flashing LED status
-// #define DEEP_SLEEP_SECONDS  10     // Define for sleep timer_interval between process repeats. No sleep if not defined
+#define DEEP_SLEEP_SECONDS  60    // Define for sleep timer_interval between process repeats. No sleep if not defined
 #define DEEP_SLEEP_STARTUP_SECONDS  60     // do not fall into deep sleep after normal startup, to allow for OTA updates
 #define TIMER_INTERVAL_MILLIS 5000 // periodically execute code using non-blocking timer instead delay()
 #define JSON_CONFIG_OTA            // upload JSON config via OTA providing REST API
