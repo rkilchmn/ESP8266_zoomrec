@@ -912,7 +912,11 @@ void setup()
   }
 
 #ifdef HTTP_OTA
+  // remove watchdog while updating
+  watchdog.detach();
   perform_HTTP_OTA_Update();
+  // Watchdog timer - resets if setup takes longer than allocated time
+  watchdog.once(WATCHDOG_SETUP_SECONDS, &timeout_cb);
 #endif
 
 #ifdef ARDUINO_OTA
