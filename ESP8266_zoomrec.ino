@@ -73,22 +73,7 @@
 // #define SNPRINTF(format, ...) \
 //     (snprintf(strBuf, sizeof(strBuf), format, ##__VA_ARGS__) >= 0 ? strBuf : ((strBuf[0] = '\0'), strBuf))
 
-// Optional functionality. Comment out defines to disable feature
-#define WIFI_PORTAL // Enable WiFi config portal
-#define WPS_CONFIG  // press WPS bytton on wifi pathr
-// #define ARDUINO_OTA: caused segfault after ca 30 min:
-
-// #define ARDUINO_OTA      // Enable Arduino IDE OTA updates
-#define HTTP_OTA         // Enable OTA updates from http server
-#define LED_STATUS_FLASH // Enable flashing LED status
-#define DEEP_SLEEP_SECONDS  60    // Define for sleep timer_interval between process repeats. No sleep if not defined
-#define DEEP_SLEEP_STARTUP_SECONDS  60     // do not fall into deep sleep after normal startup, to allow for OTA updates
-#define TIMER_INTERVAL_MILLIS 5000 // periodically execute code using non-blocking timer instead delay()
-#define JSON_CONFIG_OTA            // upload JSON config via OTA providing REST API
-#define GDB_DEBUG                  // enable debugging using GDB using serial
-#define USE_NTP                    // enable NTP
-#define HTTPS_REST_CLIENT          // provide HTTPS REST client
-#define TELNET                     // use telnet
+#include "features.h"
 
 #define SERIAL_DEFAULT_BAUD 74880 // native baud rate to see boot message
 #define FAST_CONNECTION_TIMEOUT 10000 // timeout for initial connection atempt
@@ -112,143 +97,7 @@ const char *WIFI_SSID = "SSID" const char *WIFI_PASSWORD = "password"
 #define TELNET_DEFAULT_PORT 23
 #endif
 
-class Console : public Stream
-{
-  public:
-    enum LogLevel {
-            DEBUG = 10,
-            INFO = 20,
-            WARNING = 30,
-            ERROR = 40,
-            CRITICAL = 50
-    };
-
-  // Constructor
-  Console()
-  {
-    primaryStream = &Serial;
-    SecondaryOutputStream = nullptr;
-  }
-
-  // Required Stream functions to implement
-  virtual size_t write(uint8_t data)
-  {
-
-    // write to secondary output
-    if (SecondaryOutputStream != nullptr)
-      SecondaryOutputStream->write(data);
-
-    // Print the data to the current stream
-    return primaryStream->write(data);
-  }
-
-  virtual int available()
-  {
-    // Check the availability of input data on the current stream
-    return primaryStream->available();
-  }
-
-  virtual int read()
-  {
-    // Read a byte of data from the current stream
-    return primaryStream->read();
-  }
-
-  virtual int peek()
-  {
-    // Peek at the next byte of input data from the current stream
-    return primaryStream->peek();
-  }
-
-  // Additional functions from Stream that can be implemented if needed
-  // ...
-
-  // Function to begin with Serial
-  void begin(unsigned long baudRate)
-  {
-    Serial.begin(baudRate);
-    primaryStream = &Serial;
-  }
-
-  // Function to begin with a stream e.g. TelnetStream
-  void begin(Stream &primary, Stream &secondOutput)
-  {
-    primaryStream = &primary;
-    SecondaryOutputStream = &secondOutput;
-  }
-
-  // Function to begin with a stream e.g. TelnetStream
-  void begin(Stream &primary)
-  {
-    primaryStream = &primary;
-  }
-
-  void setLogLevel(LogLevel level) {
-    logLevelThreshold = level;
-  }
-
-  static const char* getLogLevelString(LogLevel level) {
-      switch (level) {
-          case DEBUG: return "DEBUG";
-          case INFO: return "INFO";
-          case WARNING: return "WARNING";
-          case ERROR: return "ERROR";
-          case CRITICAL: return "CRITICAL";
-          default: return "UNKNOWN";
-      }
-    }
-
-  LogLevel intToLogLevel(int intValue) {
-        switch (intValue) {
-            case 10: return DEBUG;
-            case 20: return INFO;
-            case 30: return WARNING;
-            case 40: return ERROR;
-            case 50: return CRITICAL;
-            default: return DEBUG; // Default to DEBUG if the value is not recognized
-        }
-    }
-
-  void log(LogLevel level, const __FlashStringHelper *format, ...)
-  {
-    if (level >= logLevelThreshold) {
-      const char *fmt = reinterpret_cast<const char *>(format);
-
-      time_t localTime = time(nullptr);
-      struct tm *tm = localtime(&localTime);
-
-      // Create a temp string using strftime() function
-      char temp[100];
-      strftime(temp, sizeof(temp), "%Y-%m-%d %H:%M:%S ", tm);
-      print(temp);
-
-      // log level
-      print( getLogLevelString(level)); print( " ");
-
-      va_list arg;
-      va_start(arg, format);
-      vsnprintf(temp, sizeof(temp), fmt, arg);
-      va_end(arg);
-      print(temp);
-      print("\n");
-    }
-  }
-
-
-  private:
-    Stream *primaryStream;
-    Stream *SecondaryOutputStream; // backup for output e.g. keep sending to Serial
-    LogLevel logLevelThreshold = INFO; // Default log level is DEBUG
-
-  // // Function to log messages
-  // template<typename... Args>
-  // void log(const Args&... args) {
-  //   printTimestamp();
-  //   print(args...);
-  //   println();
-  // }
-};
-
+#include "console.h"
 Console console;
 
 #ifdef ARDUINO_OTA
@@ -298,10 +147,9 @@ Console console;
 #include <ESP8266WebServer.h>
 #include <ArduinoJson.h>
 
-#define JSON_CONFIG_MAXSIZE 4096 // initial size to allocate, resized later what is required
 
-// Checkout this how to access config: https://arduinojson.org/v6/example/string/
-DynamicJsonDocument config(0); // will be resized when rwad from file
+#include "config.h"
+Config config;
 
 /* sample config.json file to upload
 curl -v  -X POST  -H "Content-Type: application/json" -u admin:myadminpw --data @ESP8266_Template.config.json http:/<IP of ESP8266>:8080/config
@@ -321,11 +169,7 @@ curl -v  -X POST  -H "Content-Type: application/json" -u admin:myadminpw --data 
     "telnet_port": 23   
 }
 */
-// defaults - can be overwritten with JSON config file
-#define JSON_CONFIG_USERNAME "admin"
-#define JSON_CONFIG_PASSWD "myadminpw"
-#define JSON_CONFIG_OTA_PATH "/config"
-#define JSON_CONFIG_OTA_PORT 8080
+
 
 #define JSON_CONFIG_OTA_FILE "/config.json"
 #endif
@@ -403,56 +247,6 @@ void configModeCallback(WiFiManager *myWiFiManager)
 #endif
 
 #ifdef JSON_CONFIG_OTA
-// return true on success
-boolean retrieveJSON(DynamicJsonDocument &doc, String filename)
-{
-  // read the JSON file from SPIFFS
-  File file = SPIFFS.open(filename, "r");
-  if (!file)
-  {
-    return false;
-  }
-
-  doc = DynamicJsonDocument(JSON_CONFIG_MAXSIZE);
-  // parse the JSON file into the JSON object
-  DeserializationError error = deserializeJson(doc, file);
-  doc.shrinkToFit();
-  file.close();
-
-  return !error;
-}
-
-int hasConfig(const char *configKey)
-{
-  if (!config.isNull() && config.containsKey(configKey))
-    return true;
-  else
-    return false;
-}
-
-int useConfig(const char *configKey, int defaultValue)
-{
-  if (!config.isNull() && config.containsKey(configKey))
-    return config[configKey].as<int>();
-  else
-    return defaultValue;
-}
-
-const char *useConfig(const char *configKey, const char *defaultValue)
-{
-  if (!config.isNull() && config.containsKey(configKey))
-    return config[configKey];
-  else
-    return defaultValue;
-}
-
-// String useConfig(const char *configKey, String defaultValue)
-// {
-//   if (!config.isNull() && config.containsKey(configKey))
-//     return config[configKey].as<String>();
-//   else
-//     return defaultValue;
-// }
 
 #endif
 
@@ -589,7 +383,7 @@ void setup_ArduinoOTA()
       console.log(Console::INFO, F("OTA upload starting...")); });
   ArduinoOTA.onEnd([]()
                    { console.log(Console::INFO, F("OTA upload finished")); });
-  ArduinoOTA.onProgress([](unsigned int progressunsigned int total)
+  ArduinoOTA.onProgress([](unsigned int progress, unsigned int total)
                         { console.log(Console::INFO, F("Progress: %u%%"), (progress / (total / 100))); });
   ArduinoOTA.onError([](ota_error_t error)
                      {
@@ -646,84 +440,14 @@ boolean perform_HTTP_OTA_Update()
 void setup_NTP()
 {
   settimeofday_cb(time_is_set); // optional: callback if time was sent
-  if (!config.isNull() && config.containsKey("timezone_ntp"))
-    configTime(config["timezone_ntp"], NTP_SERVER);
-  else
-    configTime(NTP_DEFAULT_TIME_ZONE, NTP_SERVER);
+  configTime( config.useConfig("timezone_ntp", NTP_DEFAULT_TIME_ZONE), NTP_SERVER);
 }
 #endif
 
 #ifdef JSON_CONFIG_OTA
 ESP8266WebServer server(JSON_CONFIG_OTA_PORT);
 
-void handleConfig()
-{
-  if (!server.authenticate(useConfig("json_config_ota_username", JSON_CONFIG_USERNAME),
-                           useConfig("json_config_ota_password", JSON_CONFIG_PASSWD)))
-  {
-    return server.requestAuthentication();
-  }
 
-  if (server.method() == HTTP_POST)
-  {
-    // Only accept JSON content type
-    if (server.hasHeader("Content-Type") && server.header("Content-Type") == "application/json")
-    {
-      // Parse JSON payload
-      DynamicJsonDocument doc(JSON_CONFIG_MAXSIZE);
-      deserializeJson(doc, server.arg("plain"));
-      doc.shrinkToFit();
-
-      // Store JSON payload in SPIFFS
-      File configFile = SPIFFS.open(JSON_CONFIG_OTA_FILE, "w");
-      if (configFile)
-      {
-        serializeJson(doc, configFile);
-        configFile.close();
-        // re-read from filesystem & output
-        retrieveJSON(config, JSON_CONFIG_OTA_FILE); // refresh config
-        console.log(Console::INFO, F("OTA Config update received from IP: %s"), server.client().remoteIP().toString().c_str());
-        serializeJsonPretty(config, console);
-        console.println();
-        server.send(200);
-      }
-      else
-      {
-        server.send(500, "text/plain", "Failed to open config file for writing");
-      }
-    }
-    else
-    {
-      server.send(400, "text/plain", "Invalid content type: " + server.header("Content-Type"));
-    }
-  }
-  else
-  {
-    server.send(405, "text/plain", "Method Not Allowed");
-  }
-}
-
-void setup_JSON_CONFIG_OTA()
-{
-  // Handle HTTP POST request for config
-  server.on(useConfig("json_config_ota_path", JSON_CONFIG_OTA_PATH), handleConfig);
-
-  // list of headers to be parsed
-  const char *headerkeys[] = {"Content-Type"};
-  size_t headerkeyssize = sizeof(headerkeys) / sizeof(char *);
-  // ask server to parsed these headers
-  server.collectHeaders(headerkeys, headerkeyssize);
-
-  // Start server
-  int port = config["json_config_ota_port"].as<int>();
-  port = (port) ? port : JSON_CONFIG_OTA_PORT; // fallback to default
-  console.log(Console::INFO, F("Starting Config OTA Server on port: %d"), port);
-  
-  if (port)
-    server.begin(port);
-  else
-    server.begin();
-}
 #endif
 
 boolean connectWIFI()
