@@ -83,7 +83,7 @@
 #define LED_STATUS_FLASH // Enable flashing LED status
 #define DEEP_SLEEP_SECONDS  60    // Define for sleep timer_interval between process repeats. No sleep if not defined
 #define DEEP_SLEEP_STARTUP_SECONDS  60     // do not fall into deep sleep after normal startup, to allow for OTA updates
-#define TIMER_INTERVAL_MILLIS 5000 // periodically execute code using non-blocking timer instead delay()
+// #define TIMER_INTERVAL_MILLIS 5000 // periodically execute code using non-blocking timer instead delay()
 #define JSON_CONFIG_OTA            // upload JSON config via OTA providing REST API
 #define GDB_DEBUG                  // enable debugging using GDB using serial
 #define USE_NTP                    // enable NTP
@@ -993,7 +993,7 @@ void shutDownPC() {
     togglePowerButton();
 }
 
-void run_demo()
+void checkUpdateStatus()
 {
 
   console.log(Console::DEBUG, F("PC status: %s"), isPCRunning() ? "true" : "false");
@@ -1070,7 +1070,7 @@ void run_demo()
 void executeTimerCode()
 {
   // put your main code here, to run repeatedly usinf non blocking timer
-  run_demo();
+  checkUpdateStatus();
 }
 
 #endif
@@ -1104,7 +1104,7 @@ void loop()
   }
 #else
   // put your main code here, to run repeatedly:
-
+  checkUpdateStatus();
 #endif
 
   watchdog.detach();
