@@ -15,5 +15,6 @@
         "random": "cpp",
         "*.tpp": "cpp",
         "cstdio": "cpp"
-    }
+    },
+    "easycode.codeLens": true
 }

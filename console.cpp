@@ -1,5 +1,5 @@
 #include "console.h"
-#include <Arduino.h>  // Include necessary headers here
+#include <Arduino.h>  
 
 // Constructor
 Console::Console() {

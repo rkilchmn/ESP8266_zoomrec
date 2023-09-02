@@ -21,6 +21,4 @@ private:
   void flushBufferedData();
 };
 
-extern TelnetStreamBuffered BufferedTelnetStream;
-
 #endif // TELNETSTREAMBUFFERED_H

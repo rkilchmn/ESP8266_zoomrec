@@ -1,7 +1,7 @@
 #ifndef CONSOLE_H
 #define CONSOLE_H
 
-#include <Arduino.h>  // Include necessary headers here
+#include <Arduino.h>  
 
 class Console : public Stream
 {
