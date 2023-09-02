@@ -361,21 +361,21 @@ void BaseApp::setup()
   console.log(Console::INFO, F("Current firmware version: '%s'"), (FIRMWARE_VERSION).c_str());
 
   // individual setup for apps
-  SetupApp();
+  AppSetup();
 
   console.log(Console::DEBUG, F("End of initialization"));
   watchdog.detach();
 }
 
- void BaseApp::SetupApp() {
+ void BaseApp::AppSetup() {
     // override this method if required
  }
 
-  void BaseApp::LoopApp(){
+  void BaseApp::AppLoop(){
     // override this method if required
   }
 
-  void BaseApp::IntervalApp(){
+  void BaseApp::AppIntervall(){
     // override this method if required
   }
 
@@ -404,12 +404,12 @@ void BaseApp::loop()
   if ((unsigned long)(millis() - timer_interval) > TIMER_INTERVAL_MILLIS)
   {
     timer_interval = millis();
-    IntervalApp();
+    AppIntervall();
   }
 #endif
 
   // apps loop
-  LoopApp();
+  AppLoop();
 
   watchdog.detach();
 

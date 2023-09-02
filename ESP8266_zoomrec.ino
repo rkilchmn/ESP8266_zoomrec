@@ -11,13 +11,13 @@ class ZoomrecApp : public BaseApp {
   const int outputPinPowerButton = D2;
   int lastStatus = LOW;
 
- void SetupApp() {
+ void AppSetup() {
     // Put your initialisation code here
   pinMode(inputPinResetSwitch, INPUT_PULLUP);
   pinMode(outputPinPowerButton, OUTPUT);
  }
 
- void IntervalApp(){
+ void AppIntervall(){
     checkUpdateStatus();
  }
   

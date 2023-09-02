@@ -66,9 +66,9 @@ protected:
   Console console;
   Config config;
 
-  void SetupApp();    // ovveride this if reqired
-  void LoopApp();     // ovveride this if reqired
-  void IntervalApp(); // ovveride this if reqired
+  void AppSetup();    // ovveride this if reqired
+  void AppLoop();     // ovveride this if reqired
+  void AppIntervall(); // ovveride this if reqired
 
 private:
   
