@@ -1,5 +1,5 @@
 
-#include "AppBase.h"
+#include "BaseApp.h"
 
 #include "features.h"
 #include <Arduino.h>
@@ -9,12 +9,16 @@
     #include <GDBStub.h>
 #endif
 
-AppBase::AppBase() {
-    // constructor implementation
-}
+BaseApp::BaseApp()
+{}
 
-AppBase::~AppBase() {
-    // destructor implementation
+BaseApp::~BaseApp()
+{
+#ifdef TELNET
+    if (pBufferedTelnetStream != nullptr) {
+        delete pBufferedTelnetStream;
+    }
+#endif
 }
 
 /* Watchdog to guard against the ESP8266 wasting battery power looking for
@@ -23,7 +27,7 @@ AppBase::~AppBase() {
  *  watchdog to protect against infinite loops and hangups in user code.
  */
 
-void AppBase::timeoutCallback()
+void BaseApp::timeoutCallback()
 {
   // This sleep happened because of timeout. Do a restart after a sleep
   console.log(Console::CRITICAL, F("Watchdog timeout...restarting"));
@@ -45,7 +49,7 @@ void AppBase::timeoutCallback()
 }
 
 #ifdef LED_STATUS_FLASH
-    void AppBase::flash()
+    void BaseApp::flash()
     {
     digitalWrite(STATUS_LED, !digitalRead(STATUS_LED));
     }
@@ -53,7 +57,7 @@ void AppBase::timeoutCallback()
 
 #ifdef WIFI_PORTAL
 // Callback for entering config mode
-void AppBase::configModeCallback(WiFiManager *myWiFiManager)
+void BaseApp::configModeCallback(WiFiManager *myWiFiManager)
     {
     // Config mode has its own timeout
     watchdog.detach();
@@ -65,13 +69,13 @@ void AppBase::configModeCallback(WiFiManager *myWiFiManager)
 #endif
 
 #ifdef USE_NTP
-    void AppBase::setup_NTP()
+    void BaseApp::setup_NTP()
     {
     settimeofday_cb([this](boolean from_sntp) {time_is_set(from_sntp);}); // optional: callback if time was sent
-    configTime( config.useConfig("timezone_ntp", TZ_Europe_London), NTP_SERVER);
+    configTime( config.get("timezone_ntp", TZ_Europe_London), NTP_SERVER);
     }
 
-    void AppBase::time_is_set(boolean from_sntp /* <= this optional parameter can be used with ESP8266 Core 3.0.0*/)
+    void BaseApp::time_is_set(boolean from_sntp /* <= this optional parameter can be used with ESP8266 Core 3.0.0*/)
     {
     ntp_set = true;
 
@@ -80,13 +84,13 @@ void AppBase::configModeCallback(WiFiManager *myWiFiManager)
     console.log(Console::INFO, F("Current local time: %s"), ctime(&now));
     }
 
-    uint32_t AppBase::sntp_startup_delay_MS_rfc_not_less_than_60000()
+    uint32_t BaseApp::sntp_startup_delay_MS_rfc_not_less_than_60000()
     {
     randomSeed(A0);
     return random(5000);
     }
 
-    uint32_t AppBase::sntp_update_delay_MS_rfc_not_less_than_15000()
+    uint32_t BaseApp::sntp_update_delay_MS_rfc_not_less_than_15000()
     {
     return 12 * 60 * 60 * 1000UL; // 12 hours
     }
@@ -94,7 +98,7 @@ void AppBase::configModeCallback(WiFiManager *myWiFiManager)
 
 
 #ifdef ARDUINO_OTA
-void AppBase::setupArduinoOTA()
+void BaseApp::setupArduinoOTA()
 {
   // Arduino OTA Initalisation
   ArduinoOTA.setPort(ARDUINO_OTA_PORT);
@@ -121,11 +125,11 @@ void AppBase::setupArduinoOTA()
 #endif
 
 #ifdef HTTP_OTA
-    boolean AppBase::perform_HTTP_OTA_Update()
+    boolean BaseApp::perform_HTTP_OTA_Update()
     {
-    String http_ota_url = config.useConfig("http_ota_url", HTTP_OTA_URL);
-    String http_ota_username = config.useConfig("http_ota_username", HTTP_OTA_USERNAME);
-    String http_ota_password = config.useConfig("http_ota_password", HTTP_OTA_PASSWORD);
+    String http_ota_url = config.get("http_ota_url", HTTP_OTA_URL);
+    String http_ota_username = config.get("http_ota_username", HTTP_OTA_USERNAME);
+    String http_ota_password = config.get("http_ota_password", HTTP_OTA_PASSWORD);
 
     // Check server for firmware updates
     console.log(Console::INFO, F("Checking for firmware updates from %s"), http_ota_url.c_str());
@@ -139,7 +143,7 @@ void AppBase::setupArduinoOTA()
     if (!http_ota_username.isEmpty() && !http_ota_password.isEmpty())
         ESPhttpUpdate.setAuthorization(http_ota_username, http_ota_password);
 
-    switch (ESPhttpUpdate.update(client, http_ota_url, HTTP_OTA_VERSION))
+    switch (ESPhttpUpdate.update(client, http_ota_url, FIRMWARE_VERSION))
     {
     case HTTP_UPDATE_FAILED:
         console.log(Console::WARNING, F("HTTP update failed: Code (%d) %s"), ESPhttpUpdate.getLastError(), ESPhttpUpdate.getLastErrorString().c_str());
@@ -159,7 +163,7 @@ void AppBase::setupArduinoOTA()
     }
 #endif
 
-boolean AppBase::connectWiFi()
+boolean BaseApp::connectWiFi()
 {
 #ifdef LED_STATUS_FLASH
   pinMode(STATUS_LED, OUTPUT);
@@ -275,7 +279,7 @@ boolean AppBase::connectWiFi()
     return false;
 }
 
-String AppBase::getResetReasonString(uint8_t reason) {
+String BaseApp::getResetReasonString(uint8_t reason) {
   switch (reason) {
     case REASON_DEFAULT_RST:    return "Power-on reset";
     case REASON_WDT_RST:        return "Watchdog reset";
@@ -294,18 +298,18 @@ const int inputPinResetSwitch = D1;
 const int outputPinPowerButton = D2;
 int lastStatus = LOW;
 
-void AppBase::setup()
+void BaseApp::setup()
 {
     #ifdef GDB_DEBUG
     gdbstub_init();
     #endif
 
     // try to initialize with baud rate from config
-    int serial_baud = config.useConfig("serial_baud", SERIAL_DEFAULT_BAUD);
+    int serial_baud = config.get("serial_baud", SERIAL_DEFAULT_BAUD);
     console.begin( serial_baud); 
 
     // determine logLevel
-    int logLevel = config.useConfig("log_level", Console::DEBUG);
+    int logLevel = config.get("log_level", Console::DEBUG);
     console.setLogLevel( console.intToLogLevel( logLevel));
   
   console.println(); // newline after garbage from startup
@@ -313,21 +317,22 @@ void AppBase::setup()
 
   // setup for deep sleep
   pinMode(D0, WAKEUP_PULLUP); // be carefull when using D0 and using deep sleep
-  int deep_sleep_option = config.useConfig("deep_sleep_option", WAKE_RFCAL);
+  int deep_sleep_option = config.get("deep_sleep_option", WAKE_RFCAL);
   system_deep_sleep_set_option( deep_sleep_option);
 
   // connect to WIFI depending on what connection features are enabled
   connectWiFi();
 
 #ifdef TELNET
-  int port = config.useConfig("telnet_port", TELNET_DEFAULT_PORT);
+  int port = config.get("telnet_port", TELNET_DEFAULT_PORT);
   console.log(Console::INFO, F("Telnet service started on port: %d"), port);
-  BufferedTelnetStream.begin(port);
-  console.begin(BufferedTelnetStream, Serial); // continue output to Serial
+  pBufferedTelnetStream = new TelnetStreamBuffered(port);
+  pBufferedTelnetStream->begin(port);
+  console.begin(*pBufferedTelnetStream, Serial); // continue output to Serial
 #endif
 
   // Print config
-  config.print();
+  config.print( console);
 
 #ifdef HTTP_OTA
   // remove watchdog while updating
@@ -342,7 +347,7 @@ void AppBase::setup()
 #endif
 
 #ifdef JSON_CONFIG_OTA
-  config.setup_JSON_CONFIG_OTA();
+  config.setupOTAServer( console);
 #endif
 
 #ifdef USE_NTP
@@ -353,7 +358,7 @@ void AppBase::setup()
   perform_HTTP_OTA_Update();
 #endif
 
-  console.log(Console::INFO, F("Current firmware version: '%s'"), (HTTP_OTA_VERSION).c_str());
+  console.log(Console::INFO, F("Current firmware version: '%s'"), (FIRMWARE_VERSION).c_str());
 
   // individual setup for apps
   SetupApp();
@@ -362,19 +367,19 @@ void AppBase::setup()
   watchdog.detach();
 }
 
- void AppBase::SetupApp() {
+ void BaseApp::SetupApp() {
     // override this method if required
  }
 
-  void AppBase::LoopApp(){
+  void BaseApp::LoopApp(){
     // override this method if required
   }
 
-  void AppBase::IntervalApp(){
+  void BaseApp::IntervalApp(){
     // override this method if required
   }
 
-void AppBase::loop()
+void BaseApp::loop()
 {
 
 #ifdef ARDUINO_OTA
@@ -384,7 +389,7 @@ void AppBase::loop()
 
 #ifdef JSON_CONFIG_OTA
   // Handle HTTP requests
-  config.handleRequest();
+  config.handleOTAServerRequest();
 #endif
 
   // Watchdog timer - resets if setup takes longer than allocated time

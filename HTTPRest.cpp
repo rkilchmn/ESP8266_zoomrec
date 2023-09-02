@@ -5,7 +5,7 @@
 #include <ArduinoJson.h>
 #include <base64.h>
 
-#include "console.h"
+#include "Console.h"
 
 // Define a function to send an HTTPS request with basic authentication
 DynamicJsonDocument performHttpsRequest(Console console, const char *method, const char *url, const char *path,

@@ -1,5 +1,5 @@
-#ifndef APPBASE_H
-#define APPBASE_H
+#ifndef BASEAPP_H
+#define BASEAPP_H
 
 /**
  * How to
@@ -13,6 +13,9 @@
 #include <Arduino.h>
 #include <stdarg.h>
 #include <ESP8266WiFi.h>
+#include <Ticker.h>
+
+#include "Config.h"
 
 #ifdef TELNET
     #include "TelnetStreamBuffered.h"
@@ -39,7 +42,6 @@
     #include <FS.h>
     #include <ESP8266WebServer.h>
     #include <ArduinoJson.h>
-    #include "config.h"
 #endif
 
 #ifdef USE_NTP
@@ -47,27 +49,22 @@
     #include <coredecls.h> // optional callback to check on server
 #endif
 
-#ifdef LED_STATUS_FLASH
-    #include <Ticker.h>
-#endif
-
-class AppBase {
+class BaseApp {
 public:
-  AppBase();
-  ~AppBase();
+  BaseApp();
+  ~BaseApp();
 
   void setup();
   void loop();
 
 protected:
+  const String FIRMWARE_VERSION = String(__FILE__) + "-" + String(__DATE__) + "-" + String(__TIME__);
   const uint8 WATCHDOG_SETUP_SECONDS = 30; // Setup should complete well within this time limit
   const uint8 WATCHDOG_LOOP_SECONDS = 20;  // Loop should complete well within this time limit
   Ticker watchdog;
 
   Console console;
-#ifdef JSON_CONFIG_OTA
-   Config config;
-#endif
+  Config config;
 
   void SetupApp();    // ovveride this if reqired
   void LoopApp();     // ovveride this if reqired
@@ -84,12 +81,13 @@ private:
     void configModeCallback(WiFiManager *myWiFiManager);
     WiFiManager wifiManager;
 #else
-    const char *WIFI_SSID = "SSID" const char *WIFI_PASSWORD = "password"
+    const char *WIFI_SSID = "SSID";
+    const char *WIFI_PASSWORD = "password";
 #endif
 
 #ifdef TELNET
   const int TELNET_DEFAULT_PORT = 23;
-  TelnetStreamBuffered BufferedTelnetStream; 
+  TelnetStreamBuffered* pBufferedTelnetStream = nullptr;
 #endif
 
 #ifdef ARDUINO_OTA
@@ -102,7 +100,6 @@ private:
   const char *HTTP_OTA_URL = "http://192.168.0.1:8080/firmware";
   const char *HTTP_OTA_USERNAME = "admin";
   const char *HTTP_OTA_PASSWORD = "myadmin";
-  const String HTTP_OTA_VERSION = String(__FILE__) + "-" + String(__DATE__) + "-" + String(__TIME__);
   void setupHTTPOTA();
   boolean perform_HTTP_OTA_Update();
 #endif
@@ -144,4 +141,4 @@ unsigned long timer_startup = 0; //
   // Add your class members and methods here based on the provided code.
 };
 
-#endif // APPBASE_H
+#endif // BASEAPP_H

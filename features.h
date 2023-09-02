@@ -13,7 +13,6 @@
 #define JSON_CONFIG_OTA             // upload JSON config via OTA providing REST API
 #define GDB_DEBUG                   // enable debugging using GDB using serial
 #define USE_NTP                     // enable NTP
-#define HTTPS_REST_CLIENT           // provide HTTPS REST client
 #define TELNET                      // use telnet
 
 #endif // FEATURES_H

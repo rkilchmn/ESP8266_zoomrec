@@ -4,7 +4,7 @@
 #include <ArduinoJson.h>
 #include <ESP8266WebServer.h>
 
-#include "console.h"
+#include "Console.h"
 
 class Config 
 {
@@ -16,21 +16,22 @@ public:
     const char *JSON_CONFIG_OTA_PATH = "/config";
     static const int JSON_CONFIG_OTA_PORT = 80;
 
-    Config(Console conlsole);
+    Config();
+
     bool retrieveJSON();
-    int hasConfig(const char *configKey);
-    int useConfig(const char *configKey, int defaultValue);
-    const char *useConfig(const char *configKey, const char *defaultValue);
-    void print();
+    int exists(const char *configKey);
+    int get(const char *configKey, int defaultValue);
+    const char* get(const char *configKey, const char *defaultValue = "");
+    void print(Console console);
 
     // for config http server
-    void setup_JSON_CONFIG_OTA();
-    void handleRequest();
+    void setupOTAServer(Console console);
+    void handleOTAServerRequest();
 
 private:
     DynamicJsonDocument doc;
     ESP8266WebServer server;
-    Console console;
+    Console *refConsole;
 };
 
 #endif // CONFIG_H

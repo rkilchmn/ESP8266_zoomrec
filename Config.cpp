@@ -1,13 +1,12 @@
-#include "config.h"
+#include "Config.h"
 // library 
 #include <FS.h>
 // project
-#include "console.h"
+#include "Console.h"
 
-Config::Config( Console console) : doc(0), server(JSON_CONFIG_OTA_PORT) {
-  this->console = console;
-    if (SPIFFS.begin()) 
-        retrieveJSON();
+Config::Config() : doc(0), server(JSON_CONFIG_OTA_PORT) {
+  if (SPIFFS.begin()) 
+      retrieveJSON();
 }
 
 bool Config::retrieveJSON() {
@@ -24,31 +23,31 @@ bool Config::retrieveJSON() {
   return !error;
 }
 
-int Config::hasConfig(const char *configKey) {
+int Config::exists(const char *configKey) {
   if (!doc.isNull() && doc.containsKey(configKey))
     return true;
   else
     return false;
 }
 
-int Config::useConfig(const char *configKey, int defaultValue) {
+int Config::get(const char *configKey, int defaultValue) {
   if (!doc.isNull() && doc.containsKey(configKey))
     return doc[configKey].as<int>();
   else
     return defaultValue;
 }
 
-const char *Config::useConfig(const char *configKey, const char *defaultValue) {
+const char *Config::get(const char *configKey, const char *defaultValue) {
   if (!doc.isNull() && doc.containsKey(configKey))
     return doc[configKey];
   else
     return defaultValue;
 }
 
-void Config::handleRequest()
+void Config::handleOTAServerRequest()
 {
-  if (!server.authenticate(useConfig("json_config_ota_username", JSON_CONFIG_USERNAME),
-                           useConfig("json_config_ota_password", JSON_CONFIG_PASSWD)))
+  if (!server.authenticate(get("json_config_ota_username", JSON_CONFIG_USERNAME),
+                           get("json_config_ota_password", JSON_CONFIG_PASSWD)))
   {
     return server.requestAuthentication();
   }
@@ -71,9 +70,9 @@ void Config::handleRequest()
         configFile.close();
         // re-read from filesystem & output
         retrieveJSON(); // refresh config
-        console.log(Console::INFO, F("OTA Config update received from IP: %s"), server.client().remoteIP().toString().c_str());
-        serializeJsonPretty(doc, console);
-        console.println();
+        refConsole->log(Console::INFO, F("OTA Config update received from IP: %s"), server.client().remoteIP().toString().c_str());
+        serializeJsonPretty(doc, *refConsole);
+        refConsole->println();
         server.send(200);
       }
       else
@@ -92,10 +91,10 @@ void Config::handleRequest()
   }
 }
 
-void Config::setup_JSON_CONFIG_OTA()
+void Config::setupOTAServer(Console console)
 {
   // Handle HTTP POST request for config
-  server.on(useConfig("json_config_ota_path", JSON_CONFIG_OTA_PATH), [this]() {this->handleRequest();});
+  server.on(get("json_config_ota_path", JSON_CONFIG_OTA_PATH), [this]() {this->handleOTAServerRequest();});
 
   // list of headers to be parsed
   const char *headerkeys[] = {"Content-Type"};
@@ -104,7 +103,7 @@ void Config::setup_JSON_CONFIG_OTA()
   server.collectHeaders(headerkeys, headerkeyssize);
 
   // Start server
-  int port = useConfig("json_config_ota_port", JSON_CONFIG_OTA_PORT);
+  int port = get("json_config_ota_port", JSON_CONFIG_OTA_PORT);
   console.log(Console::INFO, F("Starting Config OTA Server on port: %d"), port);
   
   if (port)
@@ -113,7 +112,7 @@ void Config::setup_JSON_CONFIG_OTA()
     server.begin();
 }
 
-void Config::print() {
+void Config::print(Console console) {
   if (doc != nullptr)
   {
     serializeJsonPretty(doc, console);
