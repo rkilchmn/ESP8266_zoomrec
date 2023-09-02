@@ -5,11 +5,13 @@
 #include <TelnetStream.h>
 #include <CircularBuffer.h>
 
-class TelnetStreamBuffered : public TelnetStreamClass {
+class TelnetStreamBuffered : public TelnetStreamClass
+{
 protected:
   CircularBuffer<uint8_t, 512> buffer;
 
-  boolean overwriting; 
+  boolean overwriting;
+
 public:
   TelnetStreamBuffered(uint16_t port);
 

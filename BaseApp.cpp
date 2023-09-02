@@ -6,18 +6,20 @@
 #include <stdarg.h>
 
 #ifdef GDB_DEBUG
-    #include <GDBStub.h>
+#include <GDBStub.h>
 #endif
 
 BaseApp::BaseApp()
-{}
+{
+}
 
 BaseApp::~BaseApp()
 {
 #ifdef TELNET
-    if (pBufferedTelnetStream != nullptr) {
-        delete pBufferedTelnetStream;
-    }
+  if (pBufferedTelnetStream != nullptr)
+  {
+    delete pBufferedTelnetStream;
+  }
 #endif
 }
 
@@ -49,53 +51,54 @@ void BaseApp::timeoutCallback()
 }
 
 #ifdef LED_STATUS_FLASH
-    void BaseApp::flash()
-    {
-    digitalWrite(STATUS_LED, !digitalRead(STATUS_LED));
-    }
+void BaseApp::flash()
+{
+  digitalWrite(STATUS_LED, !digitalRead(STATUS_LED));
+}
 #endif
 
 #ifdef WIFI_PORTAL
 // Callback for entering config mode
 void BaseApp::configModeCallback(WiFiManager *myWiFiManager)
-    {
-    // Config mode has its own timeout
-    watchdog.detach();
+{
+  // Config mode has its own timeout
+  watchdog.detach();
 
-    #ifdef LED_STATUS_FLASH
-        flasher.attach(0.2, [this]() {flash();});
-    #endif
-    }
+#ifdef LED_STATUS_FLASH
+  flasher.attach(0.2, [this]()
+                 { flash(); });
+#endif
+}
 #endif
 
 #ifdef USE_NTP
-    void BaseApp::setup_NTP()
-    {
-    settimeofday_cb([this](boolean from_sntp) {time_is_set(from_sntp);}); // optional: callback if time was sent
-    configTime( config.get("timezone_ntp", TZ_Europe_London), NTP_SERVER);
-    }
+void BaseApp::setup_NTP()
+{
+  settimeofday_cb([this](boolean from_sntp)
+                  { time_is_set(from_sntp); }); // optional: callback if time was sent
+  configTime(config.get("timezone_ntp", TZ_Europe_London), NTP_SERVER);
+}
 
-    void BaseApp::time_is_set(boolean from_sntp /* <= this optional parameter can be used with ESP8266 Core 3.0.0*/)
-    {
-    ntp_set = true;
+void BaseApp::time_is_set(boolean from_sntp /* <= this optional parameter can be used with ESP8266 Core 3.0.0*/)
+{
+  ntp_set = true;
 
-    time_t now = time(nullptr);
-    console.log(Console::INFO, F("NTP time received from_sntp=%s"), from_sntp ? "true" : "false");
-    console.log(Console::INFO, F("Current local time: %s"), ctime(&now));
-    }
+  time_t now = time(nullptr);
+  console.log(Console::INFO, F("NTP time received from_sntp=%s"), from_sntp ? "true" : "false");
+  console.log(Console::INFO, F("Current local time: %s"), ctime(&now));
+}
 
-    uint32_t BaseApp::sntp_startup_delay_MS_rfc_not_less_than_60000()
-    {
-    randomSeed(A0);
-    return random(5000);
-    }
+uint32_t BaseApp::sntp_startup_delay_MS_rfc_not_less_than_60000()
+{
+  randomSeed(A0);
+  return random(5000);
+}
 
-    uint32_t BaseApp::sntp_update_delay_MS_rfc_not_less_than_15000()
-    {
-    return 12 * 60 * 60 * 1000UL; // 12 hours
-    }
+uint32_t BaseApp::sntp_update_delay_MS_rfc_not_less_than_15000()
+{
+  return 12 * 60 * 60 * 1000UL; // 12 hours
+}
 #endif
-
 
 #ifdef ARDUINO_OTA
 void BaseApp::setupArduinoOTA()
@@ -125,53 +128,55 @@ void BaseApp::setupArduinoOTA()
 #endif
 
 #ifdef HTTP_OTA
-    boolean BaseApp::perform_HTTP_OTA_Update()
-    {
-    String http_ota_url = config.get("http_ota_url", HTTP_OTA_URL);
-    String http_ota_username = config.get("http_ota_username", HTTP_OTA_USERNAME);
-    String http_ota_password = config.get("http_ota_password", HTTP_OTA_PASSWORD);
+boolean BaseApp::perform_HTTP_OTA_Update()
+{
+  String http_ota_url = config.get("http_ota_url", HTTP_OTA_URL);
+  String http_ota_username = config.get("http_ota_username", HTTP_OTA_USERNAME);
+  String http_ota_password = config.get("http_ota_password", HTTP_OTA_PASSWORD);
 
-    // Check server for firmware updates
-    console.log(Console::INFO, F("Checking for firmware updates from %s"), http_ota_url.c_str());
+  // Check server for firmware updates
+  console.log(Console::INFO, F("Checking for firmware updates from %s"), http_ota_url.c_str());
 
-    WiFiClient client;
-    #ifdef LED_STATUS_FLASH
-    ESPhttpUpdate.setLedPin(STATUS_LED, LED_ON); // define level for LED on
-    #endif
+  WiFiClient client;
+#ifdef LED_STATUS_FLASH
+  ESPhttpUpdate.setLedPin(STATUS_LED, LED_ON); // define level for LED on
+#endif
 
-    // use authorization?
-    if (!http_ota_username.isEmpty() && !http_ota_password.isEmpty())
-        ESPhttpUpdate.setAuthorization(http_ota_username, http_ota_password);
+  // use authorization?
+  if (!http_ota_username.isEmpty() && !http_ota_password.isEmpty())
+    ESPhttpUpdate.setAuthorization(http_ota_username, http_ota_password);
 
-    switch (ESPhttpUpdate.update(client, http_ota_url, FIRMWARE_VERSION))
-    {
-    case HTTP_UPDATE_FAILED:
-        console.log(Console::WARNING, F("HTTP update failed: Code (%d) %s"), ESPhttpUpdate.getLastError(), ESPhttpUpdate.getLastErrorString().c_str());
-        return false;
-
-    case HTTP_UPDATE_NO_UPDATES:
-        console.log(Console::INFO, F("No updates"));
-        return false;
-
-    case HTTP_UPDATE_OK:
-        console.log(Console::INFO, F("Update OK"));
-        return true;
-    default:
-        return false;
-    }
+  switch (ESPhttpUpdate.update(client, http_ota_url, FIRMWARE_VERSION))
+  {
+  case HTTP_UPDATE_FAILED:
+    console.log(Console::WARNING, F("HTTP update failed: Code (%d) %s"), ESPhttpUpdate.getLastError(), ESPhttpUpdate.getLastErrorString().c_str());
     return false;
-    }
+
+  case HTTP_UPDATE_NO_UPDATES:
+    console.log(Console::INFO, F("No updates"));
+    return false;
+
+  case HTTP_UPDATE_OK:
+    console.log(Console::INFO, F("Update OK"));
+    return true;
+  default:
+    return false;
+  }
+  return false;
+}
 #endif
 
 boolean BaseApp::connectWiFi()
 {
 #ifdef LED_STATUS_FLASH
   pinMode(STATUS_LED, OUTPUT);
-  flasher.attach(0.6, [this]() {flash();});
+  flasher.attach(0.6, [this]()
+                 { flash(); });
 #endif
 
   // Watchdog timer - resets if setup takes longer than allocated time
-  watchdog.once(WATCHDOG_SETUP_SECONDS, [this]() {timeoutCallback();});
+  watchdog.once(WATCHDOG_SETUP_SECONDS, [this]()
+                {  timeoutCallback(); });
 
   // try connect using previous connection details stored in eeprom
   if (WiFi.SSID().length() > 0)
@@ -180,7 +185,7 @@ boolean BaseApp::connectWiFi()
     console.log(Console::INFO, F("WiFi credentials stored: %s"), WiFi.SSID().c_str());
 
     console.log(Console::INFO, F("Connecting..."));
-    
+
     WiFi.begin(WiFi.SSID(), WiFi.psk());
     WiFi.waitForConnectResult(FAST_CONNECTION_TIMEOUT);
   }
@@ -233,7 +238,8 @@ boolean BaseApp::connectWiFi()
       wifiManager.setDebugOutput(true);
 
       wifiManager.setConfigPortalTimeout(180);
-      wifiManager.setAPCallback([this](WiFiManager *myWiFiManager) {configModeCallback(myWiFiManager);});
+      wifiManager.setAPCallback([this](WiFiManager *myWiFiManager)
+                                { configModeCallback(myWiFiManager); });
       if (!wifiManager.autoConnect())
       {
         console.log(Console::WARNING, F("Connection Failed!"));
@@ -279,19 +285,28 @@ boolean BaseApp::connectWiFi()
     return false;
 }
 
-String BaseApp::getResetReasonString(uint8_t reason) {
-  switch (reason) {
-    case REASON_DEFAULT_RST:    return "Power-on reset";
-    case REASON_WDT_RST:        return "Watchdog reset";
-    case REASON_EXCEPTION_RST:  return "Exception reset";
-    case REASON_SOFT_WDT_RST:   return "Software Watchdog reset";
-    case REASON_SOFT_RESTART:   return "Software restart";
-    case REASON_DEEP_SLEEP_AWAKE: return "Deep sleep wake-up";
-    case REASON_EXT_SYS_RST:    return "External system reset";
-    default:                    return "Unknown reset reason";
+String BaseApp::getResetReasonString(uint8_t reason)
+{
+  switch (reason)
+  {
+  case REASON_DEFAULT_RST:
+    return "Power-on reset";
+  case REASON_WDT_RST:
+    return "Watchdog reset";
+  case REASON_EXCEPTION_RST:
+    return "Exception reset";
+  case REASON_SOFT_WDT_RST:
+    return "Software Watchdog reset";
+  case REASON_SOFT_RESTART:
+    return "Software restart";
+  case REASON_DEEP_SLEEP_AWAKE:
+    return "Deep sleep wake-up";
+  case REASON_EXT_SYS_RST:
+    return "External system reset";
+  default:
+    return "Unknown reset reason";
   }
 }
-
 
 // Put any project specific code here
 const int inputPinResetSwitch = D1;
@@ -300,25 +315,25 @@ int lastStatus = LOW;
 
 void BaseApp::setup()
 {
-    #ifdef GDB_DEBUG
-    gdbstub_init();
-    #endif
+#ifdef GDB_DEBUG
+  gdbstub_init();
+#endif
 
-    // try to initialize with baud rate from config
-    int serial_baud = config.get("serial_baud", SERIAL_DEFAULT_BAUD);
-    console.begin( serial_baud); 
+  // try to initialize with baud rate from config
+  int serial_baud = config.get("serial_baud", SERIAL_DEFAULT_BAUD);
+  console.begin(serial_baud);
 
-    // determine logLevel
-    int logLevel = config.get("log_level", Console::DEBUG);
-    console.setLogLevel( console.intToLogLevel( logLevel));
-  
+  // determine logLevel
+  int logLevel = config.get("log_level", Console::DEBUG);
+  console.setLogLevel(console.intToLogLevel(logLevel));
+
   console.println(); // newline after garbage from startup
-  console.log(Console::DEBUG, F("Start of initialization: Reset Reason='%s'"), getResetReasonString(ESP.getResetInfoPtr()->reason).c_str()); 
+  console.log(Console::DEBUG, F("Start of initialization: Reset Reason='%s'"), getResetReasonString(ESP.getResetInfoPtr()->reason).c_str());
 
   // setup for deep sleep
   pinMode(D0, WAKEUP_PULLUP); // be carefull when using D0 and using deep sleep
   int deep_sleep_option = config.get("deep_sleep_option", WAKE_RFCAL);
-  system_deep_sleep_set_option( deep_sleep_option);
+  system_deep_sleep_set_option(deep_sleep_option);
 
   // connect to WIFI depending on what connection features are enabled
   connectWiFi();
@@ -332,14 +347,15 @@ void BaseApp::setup()
 #endif
 
   // Print config
-  config.print( console);
+  config.print(console);
 
 #ifdef HTTP_OTA
   // remove watchdog while updating
   watchdog.detach();
   perform_HTTP_OTA_Update();
   // Watchdog timer - resets if setup takes longer than allocated time
-  watchdog.once(WATCHDOG_SETUP_SECONDS, [this]() {timeoutCallback();});
+  watchdog.once(WATCHDOG_SETUP_SECONDS, [this]()
+                { timeoutCallback(); });
 #endif
 
 #ifdef ARDUINO_OTA
@@ -347,7 +363,7 @@ void BaseApp::setup()
 #endif
 
 #ifdef JSON_CONFIG_OTA
-  config.setupOTAServer( console);
+  config.setupOTAServer(console);
 #endif
 
 #ifdef USE_NTP
@@ -367,17 +383,20 @@ void BaseApp::setup()
   watchdog.detach();
 }
 
- void BaseApp::AppSetup() {
-    // override this method if required
- }
+void BaseApp::AppSetup()
+{
+  // override this method if required
+}
 
-  void BaseApp::AppLoop(){
-    // override this method if required
-  }
+void BaseApp::AppLoop()
+{
+  // override this method if required
+}
 
-  void BaseApp::AppIntervall(){
-    // override this method if required
-  }
+void BaseApp::AppIntervall()
+{
+  // override this method if required
+}
 
 void BaseApp::loop()
 {
@@ -393,44 +412,48 @@ void BaseApp::loop()
 #endif
 
   // Watchdog timer - resets if setup takes longer than allocated time
-  watchdog.once(WATCHDOG_LOOP_SECONDS, [this]() {timeoutCallback();});
+  watchdog.once(WATCHDOG_LOOP_SECONDS, [this]()
+                {  timeoutCallback(); });
 
 #ifdef USE_NTP
   // do not start processing main loop until NTP time is set
-  if (ntp_set) {
+  if (ntp_set)
+  {
 
 #ifdef TIMER_INTERVAL_MILLIS
-  // https://www.norwegiancreations.com/2018/10/arduino-tutorial-avoiding-the-overflow-issue-when-using-millis-and-micros/
-  if ((unsigned long)(millis() - timer_interval) > TIMER_INTERVAL_MILLIS)
-  {
-    timer_interval = millis();
-    AppIntervall();
-  }
+    // https://www.norwegiancreations.com/2018/10/arduino-tutorial-avoiding-the-overflow-issue-when-using-millis-and-micros/
+    if ((unsigned long)(millis() - timer_interval) > TIMER_INTERVAL_MILLIS)
+    {
+      timer_interval = millis();
+      AppIntervall();
+    }
 #endif
 
-  // apps loop
-  AppLoop();
+    // apps loop
+    AppLoop();
 
-  watchdog.detach();
+    watchdog.detach();
 
 #ifdef DEEP_SLEEP_SECONDS
 
-  // no deep sleep after normal power up to allow for OTA updates
-  bool expired = false;
-  if ((unsigned long)(millis() - timer_startup) > DEEP_SLEEP_STARTUP_SECONDS * 1000) {
-    timer_startup = millis();
-    expired = true;
-  }
-
-  if ((ESP.getResetInfoPtr()->reason == REASON_DEEP_SLEEP_AWAKE) || expired) {
-    // Enter DeepSleep
-    console.log(Console::DEBUG, F("Entering deep sleep for %d seconds..."), DEEP_SLEEP_SECONDS);
-    ESP.deepSleep(DEEP_SLEEP_SECONDS * 1000000, WAKE_RF_DEFAULT);
-    // Do nothing while we wait for sleep to overcome us
-    while (true)
+    // no deep sleep after normal power up to allow for OTA updates
+    bool expired = false;
+    if ((unsigned long)(millis() - timer_startup) > DEEP_SLEEP_STARTUP_SECONDS * 1000)
     {
-    };
-  }
+      timer_startup = millis();
+      expired = true;
+    }
+
+    if ((ESP.getResetInfoPtr()->reason == REASON_DEEP_SLEEP_AWAKE) || expired)
+    {
+      // Enter DeepSleep
+      console.log(Console::DEBUG, F("Entering deep sleep for %d seconds..."), DEEP_SLEEP_SECONDS);
+      ESP.deepSleep(DEEP_SLEEP_SECONDS * 1000000, WAKE_RF_DEFAULT);
+      // Do nothing while we wait for sleep to overcome us
+      while (true)
+      {
+      };
+    }
 #endif
   }
 #endif

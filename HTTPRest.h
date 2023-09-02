@@ -8,5 +8,4 @@ DynamicJsonDocument performHttpsRequest(Console console, const char *method, con
                                         const char *http_username, const char *http_password, const char *tls_fingerprint, size_t response_capacity = 1024,
                                         DynamicJsonDocument *requestBody = nullptr);
 
-
 #endif // HTTPREST_H

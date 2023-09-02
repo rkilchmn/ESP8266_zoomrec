@@ -14,10 +14,11 @@ DynamicJsonDocument performHttpsRequest(Console console, const char *method, con
 {
   WiFiClient client;
 
-  if (strncmp(url, "https", 5) == 0) {
+  if (strncmp(url, "https", 5) == 0)
+  {
     // Use WiFiClientSecure for HTTPS requests
     WiFiClientSecure secureClient;
-  
+
     if (strlen(tls_fingerprint) > 0)
       secureClient.setFingerprint(tls_fingerprint);
     else

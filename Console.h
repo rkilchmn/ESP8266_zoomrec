@@ -1,12 +1,13 @@
 #ifndef CONSOLE_H
 #define CONSOLE_H
 
-#include <Arduino.h>  
+#include <Arduino.h>
 
 class Console : public Stream
 {
 public:
-    enum LogLevel {
+    enum LogLevel
+    {
         DEBUG = 10,
         INFO = 20,
         WARNING = 30,
@@ -28,16 +29,16 @@ public:
 
     // Function to begin with Serial
     void begin(unsigned long baudRate);
-    
+
     // Function to begin with a stream e.g. TelnetStream
     void begin(Stream &primary, Stream &secondOutput);
-    
+
     // Function to begin with a stream e.g. TelnetStream
     void begin(Stream &primary);
 
     void setLogLevel(LogLevel level);
 
-    static const char* getLogLevelString(LogLevel level);
+    static const char *getLogLevelString(LogLevel level);
 
     LogLevel intToLogLevel(int intValue);
 
@@ -45,8 +46,8 @@ public:
 
 private:
     Stream *primaryStream;
-    Stream *SecondaryOutputStream; // backup for output e.g. keep sending to Serial
+    Stream *SecondaryOutputStream;     // backup for output e.g. keep sending to Serial
     LogLevel logLevelThreshold = INFO; // Default log level is DEBUG
 };
 
-#endif  // CONSOLE_H
+#endif // CONSOLE_H

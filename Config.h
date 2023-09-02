@@ -6,7 +6,7 @@
 
 #include "Console.h"
 
-class Config 
+class Config
 {
 public:
     static const size_t JSON_CONFIG_MAXSIZE = 4096;
@@ -21,7 +21,7 @@ public:
     bool retrieveJSON();
     int exists(const char *configKey);
     int get(const char *configKey, int defaultValue);
-    const char* get(const char *configKey, const char *defaultValue = "");
+    const char *get(const char *configKey, const char *defaultValue = "");
     void print(Console console);
 
     // for config http server
