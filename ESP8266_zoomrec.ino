@@ -7,11 +7,16 @@
 
 class ZoomrecApp : public BaseApp
 {
+
 private:
   const int inputPinResetSwitch = D1;
   const int outputPinPowerButton = D2;
   int lastStatus = LOW;
 
+  void setFirmwareVersion() {
+    FIRMWARE_VERSION = String(__FILE__) + "-" + String(__DATE__) + "-" + String(__TIME__);
+  }
+  
   void AppSetup()
   {
     // Put your initialisation code here

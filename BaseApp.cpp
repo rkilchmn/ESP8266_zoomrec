@@ -23,6 +23,11 @@ BaseApp::~BaseApp()
 #endif
 }
 
+
+void BaseApp::setFirmwareVersion() {
+  FIRMWARE_VERSION = String(__FILE__) + "-" + String(__DATE__) + "-" + String(__TIME__);
+}
+
 /* Watchdog to guard against the ESP8266 wasting battery power looking for
  *  non-responsive wifi networks and servers. Expiry of the watchdog will trigger
  *  either a deep sleep cycle or a delayed reboot. The ESP8266 OS has another built-in
@@ -328,6 +333,9 @@ void BaseApp::setup()
   console.setLogLevel(console.intToLogLevel(logLevel));
 
   console.println(); // newline after garbage from startup
+  setFirmwareVersion();
+  console.log(Console::INFO, F("Current firmware version: '%s'"), (FIRMWARE_VERSION).c_str());
+
   console.log(Console::DEBUG, F("Start of initialization: Reset Reason='%s'"), getResetReasonString(ESP.getResetInfoPtr()->reason).c_str());
 
   // setup for deep sleep
@@ -349,23 +357,6 @@ void BaseApp::setup()
   // Print config
   config.print(console);
 
-#ifdef HTTP_OTA
-  // remove watchdog while updating
-  watchdog.detach();
-  perform_HTTP_OTA_Update();
-  // Watchdog timer - resets if setup takes longer than allocated time
-  watchdog.once(WATCHDOG_SETUP_SECONDS, [this]()
-                { timeoutCallback(); });
-#endif
-
-#ifdef ARDUINO_OTA
-  setupArduinoOTA();
-#endif
-
-#ifdef JSON_CONFIG_OTA
-  config.setupOTAServer(console);
-#endif
-
 #ifdef USE_NTP
   setup_NTP();
 #endif
@@ -374,7 +365,13 @@ void BaseApp::setup()
   perform_HTTP_OTA_Update();
 #endif
 
-  console.log(Console::INFO, F("Current firmware version: '%s'"), (FIRMWARE_VERSION).c_str());
+#ifdef ARDUINO_OTA
+  setupArduinoOTA();
+#endif
+
+#ifdef JSON_CONFIG_OTA
+  config.setupOTAServer(&console);
+#endif
 
   // individual setup for apps
   AppSetup();
@@ -401,14 +398,14 @@ void BaseApp::AppIntervall()
 void BaseApp::loop()
 {
 
+#ifdef JSON_CONFIG_OTA
+  // Handle HTTP requests
+  config.handleOTAServerClient();
+#endif
+
 #ifdef ARDUINO_OTA
   // Handle any OTA upgrade
   ArduinoOTA.handle();
-#endif
-
-#ifdef JSON_CONFIG_OTA
-  // Handle HTTP requests
-  config.handleOTAServerRequest();
 #endif
 
   // Watchdog timer - resets if setup takes longer than allocated time
@@ -429,7 +426,6 @@ void BaseApp::loop()
     }
 #endif
 
-    // apps loop
     AppLoop();
 
     watchdog.detach();

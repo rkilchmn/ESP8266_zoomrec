@@ -59,7 +59,7 @@ public:
   void loop();
 
 protected:
-  const String FIRMWARE_VERSION = String(__FILE__) + "-" + String(__DATE__) + "-" + String(__TIME__);
+  String FIRMWARE_VERSION = String(__FILE__) + "-" + String(__DATE__) + "-" + String(__TIME__);
   const uint8 WATCHDOG_SETUP_SECONDS = 30; // Setup should complete well within this time limit
   const uint8 WATCHDOG_LOOP_SECONDS = 20;  // Loop should complete well within this time limit
   Ticker watchdog;
@@ -67,9 +67,10 @@ protected:
   Console console;
   Config config;
 
-  void AppSetup();     // ovveride this if reqired
-  void AppLoop();      // ovveride this if reqired
-  void AppIntervall(); // ovveride this if reqired
+  virtual void AppSetup();     // ovveride this if reqired
+  virtual void AppLoop();      // ovveride this if reqired
+  virtual void AppIntervall(); // ovveride this if reqired
+  virtual void setFirmwareVersion(); // implement in the app class
 
 private:
   String getResetReasonString(uint8_t reason);

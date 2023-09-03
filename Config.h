@@ -18,20 +18,21 @@ public:
 
     Config();
 
-    bool retrieveJSON();
     int exists(const char *configKey);
     int get(const char *configKey, int defaultValue);
     const char *get(const char *configKey, const char *defaultValue = "");
     void print(Console console);
-
     // for config http server
-    void setupOTAServer(Console console);
-    void handleOTAServerRequest();
+    void setupOTAServer(Console* console);
+    void handleOTAServerClient();
 
-private:
+protected:
     DynamicJsonDocument doc;
     ESP8266WebServer server;
-    Console *refConsole;
+    Console *refConsole = nullptr;
+
+    void handleOTAServerRequest();
+    bool retrieveJSON();
 };
 
 #endif // CONFIG_H

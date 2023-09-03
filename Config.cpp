@@ -64,21 +64,22 @@ void Config::handleOTAServerRequest()
     if (server.hasHeader("Content-Type") && server.header("Content-Type") == "application/json")
     {
       // Parse JSON payload
-      DynamicJsonDocument doc(JSON_CONFIG_MAXSIZE);
-      deserializeJson(doc, server.arg("plain"));
-      doc.shrinkToFit();
+      DynamicJsonDocument configDoc(JSON_CONFIG_MAXSIZE);
+      deserializeJson( configDoc, server.arg("plain"));
+      configDoc.shrinkToFit();
 
       // Store JSON payload in SPIFFS
       File configFile = SPIFFS.open(JSON_CONFIG_OTA_FILE, "w");
       if (configFile)
       {
-        serializeJson(doc, configFile);
+        serializeJson(configDoc, configFile);
         configFile.close();
         // re-read from filesystem & output
         retrieveJSON(); // refresh config
-        refConsole->log(Console::INFO, F("OTA Config update received from IP: %s"), server.client().remoteIP().toString().c_str());
-        serializeJsonPretty(doc, *refConsole);
-        refConsole->println();
+        if (refConsole != nullptr) {
+          refConsole->log(Console::INFO, F("OTA Config update received from IP: %s"), server.client().remoteIP().toString().c_str());
+          print( *refConsole);
+        }
         server.send(200);
       }
       else
@@ -97,11 +98,13 @@ void Config::handleOTAServerRequest()
   }
 }
 
-void Config::setupOTAServer(Console console)
+void Config::setupOTAServer(Console *console)
 {
+  // server callback handler handleOTAServerRequest uses console
+  refConsole = console;
+
   // Handle HTTP POST request for config
-  server.on(get("json_config_ota_path", JSON_CONFIG_OTA_PATH), [this]()
-            { this->handleOTAServerRequest(); });
+  server.on(get("json_config_ota_path", JSON_CONFIG_OTA_PATH), std::bind(&Config::handleOTAServerRequest, this));
 
   // list of headers to be parsed
   const char *headerkeys[] = {"Content-Type"};
@@ -111,12 +114,12 @@ void Config::setupOTAServer(Console console)
 
   // Start server
   int port = get("json_config_ota_port", JSON_CONFIG_OTA_PORT);
-  console.log(Console::INFO, F("Starting Config OTA Server on port: %d"), port);
+  server.begin(port);
+  refConsole->log(Console::INFO, F("Starting Config OTA Server on port: %d"), port);
+}
 
-  if (port)
-    server.begin(port);
-  else
-    server.begin();
+void Config::handleOTAServerClient() {
+  server.handleClient();
 }
 
 void Config::print(Console console)
