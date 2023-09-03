@@ -355,7 +355,7 @@ void BaseApp::setup()
 #endif
 
   // Print config
-  config.print(console);
+  config.print(&console);
 
 #ifdef USE_NTP
   setup_NTP();

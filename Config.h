@@ -21,7 +21,7 @@ public:
     int exists(const char *configKey);
     int get(const char *configKey, int defaultValue);
     const char *get(const char *configKey, const char *defaultValue = "");
-    void print(Console console);
+    void print(Console* console);
     // for config http server
     void setupOTAServer(Console* console);
     void handleOTAServerClient();

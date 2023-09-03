@@ -78,7 +78,7 @@ void Config::handleOTAServerRequest()
         retrieveJSON(); // refresh config
         if (refConsole != nullptr) {
           refConsole->log(Console::INFO, F("OTA Config update received from IP: %s"), server.client().remoteIP().toString().c_str());
-          print( *refConsole);
+          print( refConsole);
         }
         server.send(200);
       }
@@ -100,9 +100,7 @@ void Config::handleOTAServerRequest()
 
 void Config::setupOTAServer(Console *console)
 {
-  // server callback handler handleOTAServerRequest uses console
-  refConsole = console;
-
+  refConsole = console; // server callback handler handleOTAServerRequest uses console
   // Handle HTTP POST request for config
   server.on(get("json_config_ota_path", JSON_CONFIG_OTA_PATH), std::bind(&Config::handleOTAServerRequest, this));
 
@@ -115,18 +113,20 @@ void Config::setupOTAServer(Console *console)
   // Start server
   int port = get("json_config_ota_port", JSON_CONFIG_OTA_PORT);
   server.begin(port);
-  refConsole->log(Console::INFO, F("Starting Config OTA Server on port: %d"), port);
+  if (refConsole != nullptr) {
+    refConsole->log(Console::INFO, F("Starting Config OTA Server on port: %d"), port);
+  }
 }
 
 void Config::handleOTAServerClient() {
   server.handleClient();
 }
 
-void Config::print(Console console)
+void Config::print(Console* console)
 {
-  if (doc != nullptr)
+  if ((doc != nullptr) && (console != nullptr))
   {
-    serializeJsonPretty(doc, console);
-    console.println();
+    serializeJsonPretty(doc, *console);
+    console->println();
   }
 }
