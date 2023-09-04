@@ -2,8 +2,8 @@
 #define TELNETSTREAMBUFFERED_H
 
 #include <Arduino.h>
-#include <TelnetStream.h>
-#include <CircularBuffer.h>
+#include <TelnetStream.h> // git clone https://github.com/JAndrassy/TelnetStream.git
+#include <CircularBuffer.h> // git clone https://github.com/JAndrassy/TelnetStream.git
 
 class TelnetStreamBuffered : public TelnetStreamClass
 {

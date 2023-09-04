@@ -12,7 +12,7 @@
 
 #include <Arduino.h>
 #include <stdarg.h>
-#include <ESP8266WiFi.h>
+#include <ESP8266WiFi.h> // git clone https://github.com/tzapu/WiFiManager.git
 #include <Ticker.h>
 
 #include "Config.h"
@@ -41,7 +41,7 @@
 #ifdef JSON_CONFIG_OTA
 #include <FS.h>
 #include <ESP8266WebServer.h>
-#include <ArduinoJson.h>
+#include <ArduinoJson.h> // git clone https://github.com/bblanchon/ArduinoJson.git
 #endif
 
 #ifdef USE_NTP

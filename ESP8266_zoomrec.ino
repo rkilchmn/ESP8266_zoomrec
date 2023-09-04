@@ -1,18 +1,29 @@
 #include <Arduino.h>
+#include <UrlEncode.h> // git clone https://github.com/plageoj/urlencode.git
+#include <ArduinoJson.h> // git clone https://github.com/bblanchon/ArduinoJson.git
 
 #include "BaseApp.h"
 #include "HTTPRest.h"
-
-#include <UrlEncode.h> // https://github.com/plageoj/urlencode
+#include "JSONRtcMemory.h"
 
 class ZoomrecApp : public BaseApp
 {
+  public:
+    ZoomrecApp() : statusDoc(RTC_MEMORY_SIZE * 2) {
+      // get status
+      if (!JSONRtcMemory::load(statusDoc, RTC_MEMORY_SIZE)) {
+        statusDoc["on"] = 0;
+        statusDoc.shrinkToFit();
+      }
+    };
 
 private:
   const int inputPinResetSwitch = D1;
   const int outputPinPowerButton = D2;
-  int lastStatus = LOW;
-
+  
+  const size_t RTC_MEMORY_SIZE = 512; 
+  DynamicJsonDocument statusDoc;
+  
   void setFirmwareVersion() {
     FIRMWARE_VERSION = String(__FILE__) + "-" + String(__DATE__) + "-" + String(__TIME__);
   }
@@ -73,14 +84,27 @@ private:
 
   void startPC()
   {
-    if (!isPCRunning())
+    bool onValue = isPCRunning();
+    statusDoc["on"] = onValue;
+
+    if (!onValue) {
       togglePowerButton();
+    }
+
+    JSONRtcMemory::save(statusDoc, RTC_MEMORY_SIZE);
   }
 
   void shutDownPC()
   {
-    if (isPCRunning())
-      togglePowerButton();
+    if (isPCRunning()) {
+      int onValue = statusDoc["on"].as<int>();
+
+      if (!onValue) { // PC was off, so it switched off
+        togglePowerButton();
+        JSONRtcMemory::save(statusDoc, RTC_MEMORY_SIZE);
+      }
+        
+    }
   }
 
   void checkUpdateStatus()

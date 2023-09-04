@@ -44,7 +44,7 @@ public:
 
     void log(LogLevel level, const __FlashStringHelper *format, ...);
 
-private:
+protected:
     Stream *primaryStream;
     Stream *SecondaryOutputStream;     // backup for output e.g. keep sending to Serial
     LogLevel logLevelThreshold = INFO; // Default log level is DEBUG

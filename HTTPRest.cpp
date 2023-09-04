@@ -2,7 +2,7 @@
 
 #include <ESP8266HTTPClient.h>
 #include <WiFiClientSecure.h>
-#include <ArduinoJson.h>
+#include <ArduinoJson.h> // git clone https://github.com/bblanchon/ArduinoJson.git
 #include <base64.h>
 
 #include "Console.h"
