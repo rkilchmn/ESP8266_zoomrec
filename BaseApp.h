@@ -72,7 +72,6 @@ protected:
   virtual void AppIntervall(); // ovveride this if reqired
   virtual void setFirmwareVersion(); // implement in the app class
 
-private:
   String getResetReasonString(uint8_t reason);
   void timeoutCallback();
   bool connectWiFi();
@@ -115,7 +114,8 @@ private:
 #endif
 
 #ifdef DEEP_SLEEP_SECONDS
-  unsigned long timer_startup = 0; //
+  bool preventDeepSleep = false; // allow the app to prevent vom going to deep sleep in certain conditions
+  unsigned long timer_startup = 0;
 #endif
 
 #ifdef LED_STATUS_FLASH

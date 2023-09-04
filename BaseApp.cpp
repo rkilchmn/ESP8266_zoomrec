@@ -412,11 +412,6 @@ void BaseApp::loop()
   watchdog.once(WATCHDOG_LOOP_SECONDS, [this]()
                 {  timeoutCallback(); });
 
-#ifdef USE_NTP
-  // do not start processing main loop until NTP time is set
-  if (ntp_set)
-  {
-
 #ifdef TIMER_INTERVAL_MILLIS
     // https://www.norwegiancreations.com/2018/10/arduino-tutorial-avoiding-the-overflow-issue-when-using-millis-and-micros/
     if ((unsigned long)(millis() - timer_interval) > TIMER_INTERVAL_MILLIS)
@@ -426,9 +421,9 @@ void BaseApp::loop()
     }
 #endif
 
-    AppLoop();
+  AppLoop();
 
-    watchdog.detach();
+  watchdog.detach();
 
 #ifdef DEEP_SLEEP_SECONDS
 
@@ -442,15 +437,18 @@ void BaseApp::loop()
 
     if ((ESP.getResetInfoPtr()->reason == REASON_DEEP_SLEEP_AWAKE) || expired)
     {
-      // Enter DeepSleep
-      console.log(Console::DEBUG, F("Entering deep sleep for %d seconds..."), DEEP_SLEEP_SECONDS);
-      ESP.deepSleep(DEEP_SLEEP_SECONDS * 1000000, WAKE_RF_DEFAULT);
-      // Do nothing while we wait for sleep to overcome us
-      while (true)
-      {
-      };
+      if (preventDeepSleep)
+         console.log(Console::DEBUG, F("Prevented from deep sleep: preventDeepSleep=%d"), preventDeepSleep);
+      else {
+        // Enter DeepSleep
+        console.log(Console::DEBUG, F("Entering deep sleep for %d seconds..."), DEEP_SLEEP_SECONDS);
+        ESP.deepSleep(DEEP_SLEEP_SECONDS * 1000000, WAKE_RF_DEFAULT);
+        // Do nothing while we wait for sleep to overcome us
+        while (true)
+        {
+        }
+      }
     }
 #endif
-  }
-#endif
+
 }

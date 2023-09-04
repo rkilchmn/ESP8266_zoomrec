@@ -23,21 +23,40 @@ private:
   
   const size_t RTC_MEMORY_SIZE = 512; 
   DynamicJsonDocument statusDoc;
+
+  bool checked = false;
   
   void setFirmwareVersion() {
     FIRMWARE_VERSION = String(__FILE__) + "-" + String(__DATE__) + "-" + String(__TIME__);
   }
+
+void printStatus() {
+  serializeJsonPretty(statusDoc, console);
+  console.println();
+}
+
   
   void AppSetup()
   {
     // Put your initialisation code here
     pinMode(inputPinResetSwitch, INPUT_PULLUP);
     pinMode(outputPinPowerButton, OUTPUT);
+
+    printStatus();
   }
 
-  void AppIntervall()
+  void AppLoop()
   {
-    checkUpdateStatus();
+    if (ntp_set) {
+      if  (!checked) { // check once
+        checkUpdateStatus();
+        checked = true; 
+        preventDeepSleep = false;
+      }
+    }
+    else {
+      preventDeepSleep = true;
+    }
   }
 
   time_t convertISO8601ToUnixTime(const char *isoTimestamp)
@@ -89,9 +108,10 @@ private:
 
     if (!onValue) {
       togglePowerButton();
+      printStatus();
     }
 
-    JSONRtcMemory::save(statusDoc, RTC_MEMORY_SIZE);
+    // JSONRtcMemory::save(statusDoc, RTC_MEMORY_SIZE);
   }
 
   void shutDownPC()
@@ -101,7 +121,8 @@ private:
 
       if (!onValue) { // PC was off, so it switched off
         togglePowerButton();
-        JSONRtcMemory::save(statusDoc, RTC_MEMORY_SIZE);
+        // JSONRtcMemory::save(statusDoc, RTC_MEMORY_SIZE);
+        printStatus();
       }
         
     }
