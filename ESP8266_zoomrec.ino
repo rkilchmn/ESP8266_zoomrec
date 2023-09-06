@@ -18,8 +18,8 @@ private:
   const int INPUTPINRESETSWITCH = D1;
   const int OUTPUTPINPOWERBUTTON = D2;
 
-  const int ON = 0;
-  const int OFF = 1;
+  const int PC_ON = 0;
+  const int PC_OFF = 1;
 
   // define reset/deepSleep-safe RTC memory state variables
   int eventPCPowerState;
@@ -33,7 +33,7 @@ private:
 
   void AppDeepSleepStateInit()
   {
-    eventPCPowerState = OFF;
+    eventPCPowerState = PC_OFF;
     console.log(Console::DEBUG, F("DeepSleepState cold boot - initializing: eventPCPowerState=%d"), eventPCPowerState);
   }
 
@@ -95,7 +95,7 @@ private:
 
   bool isPCRunning()
   {
-    return digitalRead(INPUTPINRESETSWITCH) == HIGH ? ON : OFF;
+    return digitalRead(INPUTPINRESETSWITCH) == HIGH ? PC_ON : PC_OFF;
   }
 
   void togglePowerButton()
@@ -108,15 +108,15 @@ private:
   void startPC()
   {
     eventPCPowerState = isPCRunning(); // what was power status when event started
-    if (eventPCPowerState = OFF)
+    if (eventPCPowerState = PC_OFF)
       togglePowerButton();
   }
 
   void shutDownPC()
   {
-    if (isPCRunning() == ON)
+    if (isPCRunning() == PC_ON)
     {
-      if (eventPCPowerState == OFF)
+      if (eventPCPowerState == PC_OFF)
       { // when event started, the PC power state was off (we started it), hence we switch it off
         togglePowerButton();
       }
