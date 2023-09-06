@@ -314,7 +314,7 @@ String BaseApp::getResetReasonString(uint8_t reason)
 }
 
 // Put any project specific code here
-const int inputPinResetSwitch = D1;
+const int INPUTPINRESETSWITCH = D1;
 const int outputPinPowerButton = D2;
 int lastStatus = LOW;
 
@@ -373,6 +373,13 @@ void BaseApp::setup()
   config.setupOTAServer(&console);
 #endif
 
+#ifdef DEEP_SLEEP_SECONDS
+  if (!deepSleepState.loadFromRTC()) {   
+    console.log( Console::DEBUG, F("DeepSleepState cold boot - calling appDeepSleepStateInit for state initialization."));
+    AppDeepSleepStateInit(); 
+  }
+#endif
+
   // individual setup for apps
   AppSetup();
 
@@ -391,6 +398,11 @@ void BaseApp::AppLoop()
 }
 
 void BaseApp::AppIntervall()
+{
+  // override this method if required
+}
+
+void BaseApp::AppDeepSleepStateInit()
 {
   // override this method if required
 }
@@ -429,9 +441,9 @@ void BaseApp::loop()
 
     // no deep sleep after normal power up to allow for OTA updates
     bool expired = false;
-    if ((unsigned long)(millis() - timer_startup) > DEEP_SLEEP_STARTUP_SECONDS * 1000)
+    if ((unsigned long)(millis() - timer_coldboot) > DEEP_SLEEP_STARTUP_SECONDS * 1000)
     {
-      timer_startup = millis();
+      timer_coldboot = millis();
       expired = true;
     }
 
@@ -441,6 +453,7 @@ void BaseApp::loop()
          console.log(Console::DEBUG, F("Prevented from deep sleep: preventDeepSleep=%d"), preventDeepSleep);
       else {
         // Enter DeepSleep
+        deepSleepState.saveToRTC(); 
         console.log(Console::DEBUG, F("Entering deep sleep for %d seconds..."), DEEP_SLEEP_SECONDS);
         ESP.deepSleep(DEEP_SLEEP_SECONDS * 1000000, WAKE_RF_DEFAULT);
         // Do nothing while we wait for sleep to overcome us

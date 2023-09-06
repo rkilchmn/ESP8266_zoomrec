@@ -49,6 +49,11 @@
 #include <coredecls.h> // optional callback to check on server
 #endif
 
+#ifdef DEEP_SLEEP_SECONDS
+#include <RTCVars.h>     // git clone https://github.com/highno/rtcvars.git
+#endif
+
+
 class BaseApp
 {
 public:
@@ -115,7 +120,9 @@ protected:
 
 #ifdef DEEP_SLEEP_SECONDS
   bool preventDeepSleep = false; // allow the app to prevent vom going to deep sleep in certain conditions
-  unsigned long timer_startup = 0;
+  unsigned long timer_coldboot = 0; // initialize time to keep track of timer for cold boot startup
+  RTCVars deepSleepState;  // storage of state variables in reset/deepSleep-safe RTC memory - define variables in App contructor
+  virtual void AppDeepSleepStateInit(); // ovveride this if reqired
 #endif
 
 #ifdef LED_STATUS_FLASH

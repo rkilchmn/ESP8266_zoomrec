@@ -1,60 +1,64 @@
 #include <Arduino.h>
-#include <UrlEncode.h> // git clone https://github.com/plageoj/urlencode.git
+#include <UrlEncode.h>   // git clone https://github.com/plageoj/urlencode.git
 #include <ArduinoJson.h> // git clone https://github.com/bblanchon/ArduinoJson.git
 
 #include "BaseApp.h"
 #include "HTTPRest.h"
-#include "JSONRtcMemory.h"
 
 class ZoomrecApp : public BaseApp
 {
-  public:
-    ZoomrecApp() : statusDoc(RTC_MEMORY_SIZE * 2) {
-      // get status
-      if (!JSONRtcMemory::load(statusDoc, RTC_MEMORY_SIZE)) {
-        statusDoc["on"] = 0;
-        statusDoc.shrinkToFit();
-      }
-    };
+public:
+  ZoomrecApp()
+  {
+    // register deep sleep state variables
+    deepSleepState.registerVar(&eventPCPowerState);
+  }
 
 private:
-  const int inputPinResetSwitch = D1;
-  const int outputPinPowerButton = D2;
-  
-  const size_t RTC_MEMORY_SIZE = 512; 
-  DynamicJsonDocument statusDoc;
+  const int INPUTPINRESETSWITCH = D1;
+  const int OUTPUTPINPOWERBUTTON = D2;
+
+  const int ON = 0;
+  const int OFF = 1;
+
+  // define reset/deepSleep-safe RTC memory state variables
+  int eventPCPowerState;
 
   bool checked = false;
-  
-  void setFirmwareVersion() {
+
+  void setFirmwareVersion()
+  {
     FIRMWARE_VERSION = String(__FILE__) + "-" + String(__DATE__) + "-" + String(__TIME__);
   }
 
-void printStatus() {
-  serializeJsonPretty(statusDoc, console);
-  console.println();
-}
+  void AppDeepSleepStateInit()
+  {
+    eventPCPowerState = OFF;
+    console.log(Console::DEBUG, F("DeepSleepState cold boot - initializing: eventPCPowerState=%d"), eventPCPowerState);
+  }
 
-  
   void AppSetup()
   {
     // Put your initialisation code here
-    pinMode(inputPinResetSwitch, INPUT_PULLUP);
-    pinMode(outputPinPowerButton, OUTPUT);
+    pinMode(INPUTPINRESETSWITCH, INPUT_PULLUP);
+    pinMode(OUTPUTPINPOWERBUTTON, OUTPUT);
 
-    printStatus();
+    console.log(Console::DEBUG, F("DeepSleepState: eventPCPowerState=%d"), eventPCPowerState);
   }
 
   void AppLoop()
   {
-    if (ntp_set) {
-      if  (!checked) { // check once
+    if (ntp_set)
+    {
+      if (!checked)
+      { // check once
         checkUpdateStatus();
-        checked = true; 
+        checked = true;
         preventDeepSleep = false;
       }
     }
-    else {
+    else
+    {
       preventDeepSleep = true;
     }
   }
@@ -91,46 +95,36 @@ void printStatus() {
 
   bool isPCRunning()
   {
-    return digitalRead(inputPinResetSwitch) == HIGH;
+    return digitalRead(INPUTPINRESETSWITCH) == HIGH ? ON : OFF;
   }
 
   void togglePowerButton()
   {
-    digitalWrite(outputPinPowerButton, HIGH);
+    digitalWrite(OUTPUTPINPOWERBUTTON, HIGH);
     delay(150);
-    digitalWrite(outputPinPowerButton, LOW);
+    digitalWrite(OUTPUTPINPOWERBUTTON, LOW);
   }
 
   void startPC()
   {
-    bool onValue = isPCRunning();
-    statusDoc["on"] = onValue;
-
-    if (!onValue) {
+    eventPCPowerState = isPCRunning(); // what was power status when event started
+    if (eventPCPowerState = OFF)
       togglePowerButton();
-      printStatus();
-    }
-
-    // JSONRtcMemory::save(statusDoc, RTC_MEMORY_SIZE);
   }
 
   void shutDownPC()
   {
-    if (isPCRunning()) {
-      int onValue = statusDoc["on"].as<int>();
-
-      if (!onValue) { // PC was off, so it switched off
+    if (isPCRunning() == ON)
+    {
+      if (eventPCPowerState == OFF)
+      { // when event started, the PC power state was off (we started it), hence we switch it off
         togglePowerButton();
-        // JSONRtcMemory::save(statusDoc, RTC_MEMORY_SIZE);
-        printStatus();
       }
-        
     }
   }
 
   void checkUpdateStatus()
   {
-
     console.log(Console::DEBUG, F("PC status: %s"), isPCRunning() ? "true" : "false");
 
     // test http client
