@@ -24,7 +24,7 @@ BaseApp::~BaseApp()
 }
 
 
-void BaseApp::setFirmwareVersion() {
+void BaseApp::AppFirmwareVersion() {
   FIRMWARE_VERSION = String(__FILE__) + "-" + String(__DATE__) + "-" + String(__TIME__);
 }
 
@@ -333,7 +333,7 @@ void BaseApp::setup()
   console.setLogLevel(console.intToLogLevel(logLevel));
 
   console.println(); // newline after garbage from startup
-  setFirmwareVersion();
+  AppFirmwareVersion();
   console.log(Console::INFO, F("Current firmware version: '%s'"), (FIRMWARE_VERSION).c_str());
 
   console.log(Console::DEBUG, F("Start of initialization: Reset Reason='%s'"), getResetReasonString(ESP.getResetInfoPtr()->reason).c_str());

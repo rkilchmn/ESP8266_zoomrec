@@ -26,7 +26,7 @@ private:
 
   bool checked = false;
 
-  void setFirmwareVersion()
+  void AppFirmwareVersion()
   {
     FIRMWARE_VERSION = String(__FILE__) + "-" + String(__DATE__) + "-" + String(__TIME__);
   }

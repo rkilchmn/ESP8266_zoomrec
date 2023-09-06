@@ -75,7 +75,7 @@ protected:
   virtual void AppSetup();     // ovveride this if reqired
   virtual void AppLoop();      // ovveride this if reqired
   virtual void AppIntervall(); // ovveride this if reqired
-  virtual void setFirmwareVersion(); // implement in the app class
+  virtual void AppFirmwareVersion(); // implement in the app class
 
   String getResetReasonString(uint8_t reason);
   void timeoutCallback();
