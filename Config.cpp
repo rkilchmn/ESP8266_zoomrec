@@ -98,7 +98,7 @@ void Config::handleOTAServerRequest()
   }
 }
 
-void Config::setupOTAServer(Console *console)
+void Config::setupOtaServer(Console *console)
 {
   refConsole = console; // server callback handler handleOTAServerRequest uses console
   // Handle HTTP POST request for config

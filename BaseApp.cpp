@@ -77,7 +77,7 @@ void BaseApp::configModeCallback(WiFiManager *myWiFiManager)
 #endif
 
 #ifdef USE_NTP
-void BaseApp::setup_NTP()
+void BaseApp::setupNtp()
 {
   settimeofday_cb([this](boolean from_sntp)
                   { time_is_set(from_sntp); }); // optional: callback if time was sent
@@ -106,7 +106,7 @@ uint32_t BaseApp::sntp_update_delay_MS_rfc_not_less_than_15000()
 #endif
 
 #ifdef ARDUINO_OTA
-void BaseApp::setupArduinoOTA()
+void BaseApp::setupArduinoOta()
 {
   // Arduino OTA Initalisation
   ArduinoOTA.setPort(ARDUINO_OTA_PORT);
@@ -133,7 +133,7 @@ void BaseApp::setupArduinoOTA()
 #endif
 
 #ifdef HTTP_OTA
-boolean BaseApp::perform_HTTP_OTA_Update()
+boolean BaseApp::performHttpOtaUpdate()
 {
   String http_ota_url = config.get("http_ota_url", HTTP_OTA_URL);
   String http_ota_username = config.get("http_ota_username", HTTP_OTA_USERNAME);
@@ -358,19 +358,19 @@ void BaseApp::setup()
   config.print(&console);
 
 #ifdef USE_NTP
-  setup_NTP();
+  setupNtp();
 #endif
 
 #ifdef HTTP_OTA
-  perform_HTTP_OTA_Update();
+  performHttpOtaUpdate();
 #endif
 
 #ifdef ARDUINO_OTA
-  setupArduinoOTA();
+  setupArduinoOta();
 #endif
 
 #ifdef JSON_CONFIG_OTA
-  config.setupOTAServer(&console);
+  config.setupOtaServer(&console);
 #endif
 
 #ifdef DEEP_SLEEP_SECONDS

@@ -16,7 +16,7 @@ public:
     const char *get(const char *configKey, const char *defaultValue = "");
     void print(Console* console);
     // for config http server
-    void setupOTAServer(Console* console);
+    void setupOtaServer(Console* console);
     void handleOTAServerClient();
 
 protected:

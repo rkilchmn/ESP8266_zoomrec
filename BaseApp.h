@@ -98,7 +98,7 @@ protected:
 #ifdef ARDUINO_OTA
   const int ARDUINO_OTA_PORT = 8266;
   const char *ARDUINO_OTA_PASSWD = "1csqBgpHchquXkzQlgl4";
-  void setupArduinoOTA();
+  void setupArduinoOta();
 #endif
 
 #ifdef HTTP_OTA
@@ -106,7 +106,7 @@ protected:
   const char *HTTP_OTA_USERNAME = "admin";
   const char *HTTP_OTA_PASSWORD = "myadmin";
   void setupHTTPOTA();
-  boolean perform_HTTP_OTA_Update();
+  boolean performHttpOtaUpdate();
 #endif
 
   const int SERIAL_DEFAULT_BAUD = 74880;     // native baud rate to see boot message
@@ -138,7 +138,7 @@ protected:
   const char *NTP_SERVER = "pool.ntp.org";
   // Timezone definition https://github.com/nayarsystems/posix_tz_db/blob/master/zones.csv
   boolean ntp_set = false; // has ntp time been set
-  void setup_NTP();
+  void setupNtp();
   void time_is_set(boolean from_sntp /* <= this optional parameter can be used with ESP8266 Core 3.0.0*/);
   uint32_t sntp_startup_delay_MS_rfc_not_less_than_60000();
   uint32_t sntp_update_delay_MS_rfc_not_less_than_15000();
