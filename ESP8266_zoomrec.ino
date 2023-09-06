@@ -11,18 +11,18 @@ public:
   ZoomrecApp()
   {
     // register deep sleep state variables
-    deepSleepState.registerVar(&eventPCPowerState);
+    deepSleepState.registerVar(&changedPowerState);
   }
 
 private:
   const int INPUTPINRESETSWITCH = D1;
   const int OUTPUTPINPOWERBUTTON = D2;
 
-  const int PC_ON = 0;
-  const int PC_OFF = 1;
+  const int PC_ON = 1;
+  const int PC_OFF = 0;
 
   // define reset/deepSleep-safe RTC memory state variables
-  int eventPCPowerState;
+  int changedPowerState;
 
   bool checked = false;
 
@@ -33,8 +33,8 @@ private:
 
   void AppDeepSleepStateInit()
   {
-    eventPCPowerState = PC_OFF;
-    console.log(Console::DEBUG, F("DeepSleepState cold boot - initializing: eventPCPowerState=%d"), eventPCPowerState);
+    changedPowerState = false;
+    console.log(Console::DEBUG, F("DeepSleepState cold boot - initializing: changedPowerState=%d"), changedPowerState);
   }
 
   void AppSetup()
@@ -43,7 +43,7 @@ private:
     pinMode(INPUTPINRESETSWITCH, INPUT_PULLUP);
     pinMode(OUTPUTPINPOWERBUTTON, OUTPUT);
 
-    console.log(Console::DEBUG, F("DeepSleepState: eventPCPowerState=%d"), eventPCPowerState);
+    console.log(Console::DEBUG, F("DeepSleepState: changedPowerState=%d"), changedPowerState);
   }
 
   void AppLoop()
@@ -93,7 +93,7 @@ private:
     return iso8601Time;
   }
 
-  bool isPCRunning()
+  bool getPowerState()
   {
     return digitalRead(INPUTPINRESETSWITCH) == HIGH ? PC_ON : PC_OFF;
   }
@@ -107,17 +107,18 @@ private:
 
   void startPC()
   {
-    eventPCPowerState = isPCRunning(); // what was power status when event started
-    if (eventPCPowerState = PC_OFF)
+    if (getPowerState() == PC_OFF) {
       togglePowerButton();
+    }
   }
 
   void shutDownPC()
   {
-    if (isPCRunning() == PC_ON)
+    if (getPowerState() == PC_ON)
     {
-      if (eventPCPowerState == PC_OFF)
-      { // when event started, the PC power state was off (we started it), hence we switch it off
+      if (changedPowerState) // did we change the power state?
+      { 
+        // yes, we are also shutting down PC
         togglePowerButton();
       }
     }
@@ -125,7 +126,7 @@ private:
 
   void checkUpdateStatus()
   {
-    console.log(Console::DEBUG, F("PC status: %s"), isPCRunning() ? "true" : "false");
+    console.log(Console::DEBUG, F("PC powerState: %s"), getPowerState() == PC_ON ? "PC_ON" : "PC_OFF");
 
     // test http client
     if (!config.exists("http_api_base_url") || (!config.exists("timezone")))
@@ -182,19 +183,23 @@ private:
       if (eventOngoing)
       {
         console.log(Console::DEBUG, F("Event ongoing..."));
-        if (!isPCRunning())
+        if (getPowerState() == PC_OFF)
         {
-          startPC();
           console.log(Console::DEBUG, F("Starting PC..."));
+          startPC();
+          changedPowerState = true; // we changed power state
         }
       }
       else
       {
         console.log(Console::DEBUG, F("No event ongoing..."));
-        if (isPCRunning())
+        if (getPowerState() == PC_ON)
         {
-          shutDownPC();
-          console.log(Console::DEBUG, F("Shutting down PC..."));
+          if (changedPowerState) { // did we change the power state?
+            console.log(Console::DEBUG, F("Shutting down PC..."));
+            shutDownPC();
+            changedPowerState = false; // reset
+          }
         }
       }
     }
