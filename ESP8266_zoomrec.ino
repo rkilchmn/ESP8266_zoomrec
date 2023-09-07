@@ -185,7 +185,7 @@ private:
         console.log(Console::DEBUG, F("Event ongoing..."));
         if (getPowerState() == PC_OFF)
         {
-          console.log(Console::DEBUG, F("Starting PC..."));
+          console.log(Console::INFO, F("Starting PC..."));
           startPC();
           changedPowerState = true; // we changed power state
         }
@@ -196,7 +196,7 @@ private:
         if (getPowerState() == PC_ON)
         {
           if (changedPowerState) { // did we change the power state?
-            console.log(Console::DEBUG, F("Shutting down PC..."));
+            console.log(Console::INFO, F("Shutting down PC..."));
             shutDownPC();
             changedPowerState = false; // reset
           }
