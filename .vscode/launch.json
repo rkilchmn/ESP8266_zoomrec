@@ -2,6 +2,19 @@
     "version": "0.2.0",
     "configurations": [
         {
+            "name": "Python: Server",
+            "type": "python",
+            "request": "launch",
+            "program": "${workspaceFolder}/ESP8266_server_app.py",
+            "console": "integratedTerminal",
+            "justMyCode": true,
+            "args": [
+                "8080",
+                "./build/",
+                "./log/" 
+            ]
+        },
+        {
             "name": "Debug Linux ",
             "type": "cppdbg",
             "request": "launch",

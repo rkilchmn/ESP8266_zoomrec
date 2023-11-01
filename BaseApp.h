@@ -17,8 +17,12 @@
 
 #include "Config.h"
 
-#ifdef TELNET
+#ifdef CONSOLE_TELNET
 #include "TelnetStreamBuffered.h"
+#endif
+
+#ifdef CONSOLE_HTTP
+#include "HttpRestStreamBuffered.h"
 #endif
 
 #ifdef WIFI_PORTAL
@@ -90,21 +94,25 @@ protected:
   const char *WIFI_PASSWORD = "password";
 #endif
 
-#ifdef TELNET
+#ifdef CONSOLE_TELNET
   const int TELNET_DEFAULT_PORT = 23;
   TelnetStreamBuffered *pBufferedTelnetStream = nullptr;
 #endif
 
+#ifdef CONSOLE_HTTP
+  HttpRestStreamBuffered *pBufferedHTTPRestStream = nullptr;
+#endif
+
 #ifdef ARDUINO_OTA
   const int ARDUINO_OTA_PORT = 8266;
-  const char *ARDUINO_OTA_PASSWD = "1csqBgpHchquXkzQlgl4";
+  const char *ARDUINO_OTA_PASSWD = "myadminpw";
   void setupArduinoOta();
 #endif
 
 #ifdef HTTP_OTA
   const char *HTTP_OTA_URL = "http://192.168.0.1:8080/firmware";
   const char *HTTP_OTA_USERNAME = "admin";
-  const char *HTTP_OTA_PASSWORD = "myadmin";
+  const char *HTTP_OTA_PASSWORD = "myadminpw";
   void setupHTTPOTA();
   boolean performHttpOtaUpdate();
 #endif

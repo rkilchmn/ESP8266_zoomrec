@@ -3,7 +3,7 @@
 #include <ArduinoJson.h> // git clone https://github.com/bblanchon/ArduinoJson.git
 
 #include "BaseApp.h"
-#include "HTTPRest.h"
+#include "JSONAPIClient.h"
 
 class ZoomrecApp : public BaseApp
 {
@@ -15,7 +15,7 @@ public:
   }
 
 private:
-  const int INPUTPINRESETSWITCH = D1;
+  const int INPUTPINRESETSWITCH = D5;
   const int OUTPUTPINPOWERBUTTON = D2;
 
   const int PC_ON = 1;
@@ -52,6 +52,7 @@ private:
     {
       if (!checked)
       { // check once
+        callLogServer();
         checkUpdateStatus();
         checked = true;
         preventDeepSleep = false;
@@ -124,6 +125,25 @@ private:
     }
   }
 
+  void callLogServer() {
+
+    console.log(Console::DEBUG, F("Call Log Server "));
+
+    DynamicJsonDocument request  = DynamicJsonDocument(200);
+
+    request["id"] = "test_log";
+    request["content"] = "mytestlog content\n";
+    request.shrinkToFit();
+
+    DynamicJsonDocument response = JSONAPIClient::performRequest( 
+      JSONAPIClient::HTTP_METHOD_POST, "http://192.168.0.237:8080","/log", request,
+      "admin","myadminpw", "");      
+
+    serializeJsonPretty(response, console);
+    console.println();                              
+  }
+
+
   void checkUpdateStatus()
   {
     console.log(Console::DEBUG, F("PC powerState: %s"), getPowerState() == PC_ON ? "PC_ON" : "PC_OFF");
@@ -140,19 +160,20 @@ private:
       snprintf(path, sizeof(path), "/event/next?astimezone=%s&leadinsecs=%d&leadoutsecs=%d",
                urlEncode(config.get("timezone", "")).c_str(), config.get("leadin_secs", 60), config.get("leadout_secs", 60));
 
-      DynamicJsonDocument response = performHttpsRequest(console, "GET", config.get("http_api_base_url", ""), path,
-                                                         config.get("http_api_username", ""), config.get("http_api_password", ""), "");
+      DynamicJsonDocument response = JSONAPIClient::performRequest(
+        JSONAPIClient::HTTP_METHOD_GET, config.get("http_api_base_url", ""), path, DynamicJsonDocument(0),
+        config.get("http_api_username", ""), config.get("http_api_password", ""), ""
+      );
 
       bool eventOngoing = false;
-      if (response.isNull())
+      serializeJsonPretty(response, console);
+      console.println();
+      if (response["body"].isNull())
       {
         console.log(Console::DEBUG, F("response for /event/next is empty"));
       }
       else
       {
-        serializeJsonPretty(response, console);
-        console.println();
-
         // extract
         char startStr[30];
         char endStr[30];

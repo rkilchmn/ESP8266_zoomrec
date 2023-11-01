@@ -14,7 +14,14 @@
         "cmath": "cpp",
         "random": "cpp",
         "*.tpp": "cpp",
-        "cstdio": "cpp"
+        "cstdio": "cpp",
+        "*.tcc": "cpp",
+        "memory_resource": "cpp",
+        "memory": "cpp",
+        "istream": "cpp",
+        "ostream": "cpp",
+        "streambuf": "cpp",
+        "new": "cpp"
     },
     "easycode.codeLens": true
 }

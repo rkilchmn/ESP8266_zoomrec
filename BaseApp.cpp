@@ -15,10 +15,17 @@ BaseApp::BaseApp()
 
 BaseApp::~BaseApp()
 {
-#ifdef TELNET
+#ifdef CONSOLE_TELNET
   if (pBufferedTelnetStream != nullptr)
   {
     delete pBufferedTelnetStream;
+  }
+#endif
+
+#ifdef CONSOLE_HTTP
+  if (pBufferedHTTPRestStream != nullptr)
+  {
+    delete pBufferedHTTPRestStream;
   }
 #endif
 }
@@ -346,12 +353,19 @@ void BaseApp::setup()
   // connect to WIFI depending on what connection features are enabled
   connectWiFi();
 
-#ifdef TELNET
+#ifdef CONSOLE_TELNET
   int port = config.get("telnet_port", TELNET_DEFAULT_PORT);
   console.log(Console::INFO, F("Telnet service started on port: %d"), port);
   pBufferedTelnetStream = new TelnetStreamBuffered(port);
   pBufferedTelnetStream->begin(port);
   console.begin(*pBufferedTelnetStream, Serial); // continue output to Serial
+#else
+  #ifdef CONSOLE_HTTP
+  // int port = config.get("telnet_port", TELNET_DEFAULT_PORT);
+  // console.log(Console::INFO, F("Telnet service started on port: %d"), port);
+  pBufferedHTTPRestStream = new HttpRestStreamBuffered("testid", "http://localhost:8080","/log", "admin","myadminpw");
+  console.begin(*pBufferedHTTPRestStream, Serial);
+  #endif
 #endif
 
   // Print config

@@ -1,16 +1,15 @@
-#include "HTTPRest.h"
+#include "JSONAPIClient.h"
 
 #include <ESP8266HTTPClient.h>
 #include <WiFiClientSecure.h>
 #include <ArduinoJson.h> // git clone https://github.com/bblanchon/ArduinoJson.git
 #include <base64.h>
 
-#include "Console.h"
-
 // Define a function to send an HTTPS request with basic authentication
-DynamicJsonDocument performHttpsRequest(Console console, const char *method, const char *url, const char *path,
-                                        const char *http_username, const char *http_password, const char *tls_fingerprint, size_t response_capacity,
-                                        DynamicJsonDocument *requestBody)
+DynamicJsonDocument JSONAPIClient::performRequest(
+    int method, const char *url, const char *path, DynamicJsonDocument requestBody,
+    const char *http_username, const char *http_password, const char *tls_fingerprint,
+    size_t response_capacity)
 {
   WiFiClient client;
 
@@ -32,24 +31,24 @@ DynamicJsonDocument performHttpsRequest(Console console, const char *method, con
   String uri = String(url) + String(path);
   http.begin(client, uri);
 
-  console.log(Console::DEBUG, F("HTTP Rest Request: %s %s"), method, uri.c_str());
-
   // Set the HTTP request headers with the basic authentication credentials
   String auth = String(http_username) + ":" + String(http_password);
   String encodedAuth = base64::encode(auth);
   http.setAuthorization(encodedAuth);
 
+  DynamicJsonDocument responseDoc(response_capacity);
+
   // Send the HTTP request to the API endpoint
   int httpCode;
-  if (String(method) == "GET")
+  String requestBodyStr;
+  switch (method)
   {
+  case HTTP_METHOD_GET:
     httpCode = http.GET();
-  }
-  else if (String(method) == "POST")
-  {
+    break;
+  case HTTP_METHOD_POST:
     // Serialize the JSON request body into a string
-    String requestBodyStr;
-    serializeJson(*requestBody, requestBodyStr);
+    serializeJson(requestBody, requestBodyStr);
 
     // Set the HTTP request headers for a JSON POST request
     http.addHeader("Content-Type", "application/json");
@@ -57,32 +56,38 @@ DynamicJsonDocument performHttpsRequest(Console console, const char *method, con
 
     // Send the HTTP POST request with the JSON request body
     httpCode = http.POST(requestBodyStr);
-  }
-  else
-  {
-    // Invalid HTTP method
-    httpCode = -99; // not official code
+    break;
+
+  default:
+    // Unsuported HTTP method
+    httpCode = HTTP_CODE_UNSUPPORTED_HTTP_METHOD;
+    responseDoc["message"] = F("Unsuported HTTP method - only GET and POST supported");
   }
 
-  DynamicJsonDocument response(response_capacity);
-
+  responseDoc["message"] = http.errorToString(responseDoc["code"]);
   if (httpCode == HTTP_CODE_OK)
   {
     // Read the response JSON data into a DynamicJsonDocument
-    DeserializationError error = deserializeJson(response, http.getString());
+    String dataStr = http.getString();
+    DynamicJsonDocument dataDoc(int(dataStr.length() * 1.1)); // factor in some overhead for JSON
 
+    DeserializationError error = deserializeJson(dataDoc, dataStr);
     if (error)
     {
-      console.log(Console::ERROR, F("Failed to parse response JSON: %s"), error.c_str());
+      httpCode = HTTP_CODE_DESERIALIZE_RESPONSE_FAILED;
+      responseDoc["message"] = error.f_str();
     }
-  }
-  else
-  {
-    console.log(Console::ERROR, F("HTTP error: (%d) %s"), httpCode, http.errorToString(httpCode).c_str());
+    else
+    {
+      responseDoc["body"] = dataDoc;
+    }
   }
 
   // Release the resources used by the HTTP client
   http.end();
 
-  return response;
+  responseDoc["code"] = httpCode;
+  responseDoc.shrinkToFit();
+
+  return responseDoc;
 }
