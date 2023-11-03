@@ -2,6 +2,7 @@
 #define HTTPREST_H
 
 #include <ArduinoJson.h> // git clone https://github.com/bblanchon/ArduinoJson.git
+#include <ESP8266HTTPClient.h>
 
 class JSONAPIClient {
 public:

@@ -52,7 +52,7 @@ private:
     {
       if (!checked)
       { // check once
-        callLogServer();
+        // callLogServer();
         checkUpdateStatus();
         checked = true;
         preventDeepSleep = false;
@@ -166,39 +166,45 @@ private:
       );
 
       bool eventOngoing = false;
-      serializeJsonPretty(response, console);
-      console.println();
-      if (response["body"].isNull())
-      {
-        console.log(Console::DEBUG, F("response for /event/next is empty"));
-      }
-      else
-      {
-        // extract
-        char startStr[30];
-        char endStr[30];
 
-        strcpy(startStr, response["start_astimezone"]);
-        strcpy(endStr, response["end_astimezone"]);
-
-        if ((startStr == nullptr || *startStr == '\0') ||
-            (endStr == nullptr || *endStr == '\0'))
+      if (response["code"].as<int>() == HTTP_CODE_OK) {    
+        if (response["body"].isNull())
         {
-          console.log(Console::DEBUG, F("response does not contain start_astimezone or end_astimezone"));
+          console.log(Console::DEBUG, F("response for /event/next is empty"));
         }
         else
         {
-          // Convert ISO 8601 timestamps to time_t (Unix timestamp)
-          time_t startTime = convertISO8601ToUnixTime(startStr);
-          time_t endTime = convertISO8601ToUnixTime(endStr);
+          // extract
+          char startStr[30];
+          char endStr[30];
 
-          // Get current UTC time
-          time_t currentTime = time(nullptr);
+          strcpy(startStr, response["start_astimezone"]);
+          strcpy(endStr, response["end_astimezone"]);
 
-          // Check if the event has started and has not yet ended
-          if ((currentTime >= startTime) && (currentTime <= endTime))
-            eventOngoing = true;
+          if ((startStr == nullptr || *startStr == '\0') ||
+              (endStr == nullptr || *endStr == '\0'))
+          {
+            console.log(Console::DEBUG, F("response does not contain start_astimezone or end_astimezone"));
+          }
+          else
+          {
+            // Convert ISO 8601 timestamps to time_t (Unix timestamp)
+            time_t startTime = convertISO8601ToUnixTime(startStr);
+            time_t endTime = convertISO8601ToUnixTime(endStr);
+
+            // Get current UTC time
+            time_t currentTime = time(nullptr);
+
+            // Check if the event has started and has not yet ended
+            if ((currentTime >= startTime) && (currentTime <= endTime))
+              eventOngoing = true;
+          }
         }
+      }
+      else {
+        // something failed
+        serializeJsonPretty(response, console);
+        console.println();
       }
 
       if (eventOngoing)

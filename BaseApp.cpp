@@ -363,8 +363,8 @@ void BaseApp::setup()
   #ifdef CONSOLE_HTTP
   // int port = config.get("telnet_port", TELNET_DEFAULT_PORT);
   // console.log(Console::INFO, F("Telnet service started on port: %d"), port);
-  pBufferedHTTPRestStream = new HttpRestStreamBuffered("testid", "http://localhost:8080","/log", "admin","myadminpw");
-  console.begin(*pBufferedHTTPRestStream, Serial);
+  pBufferedHTTPRestStream = new HttpStreamBuffered("testid", "http://localhost:8080","/log", "admin","myadminpw");
+  console.begin(*pBufferedHTTPRestStream);
   #endif
 #endif
 
@@ -469,6 +469,7 @@ void BaseApp::loop()
         // Enter DeepSleep
         deepSleepState.saveToRTC(); 
         console.log(Console::DEBUG, F("Entering deep sleep for %d seconds..."), DEEP_SLEEP_SECONDS);
+        console.flush();
         ESP.deepSleep(DEEP_SLEEP_SECONDS * 1000000, WAKE_RF_DEFAULT);
         // Do nothing while we wait for sleep to overcome us
         while (true)

@@ -20,6 +20,7 @@ public:
 
     // Required Stream functions to implement
     virtual size_t write(uint8_t data) override;
+    virtual void flush() override;
     virtual int available() override;
     virtual int read() override;
     virtual int peek() override;
@@ -48,6 +49,7 @@ protected:
     Stream *primaryStream;
     Stream *SecondaryOutputStream;     // backup for output e.g. keep sending to Serial
     LogLevel logLevelThreshold = INFO; // Default log level is DEBUG
+    
 };
 
 #endif // CONSOLE_H

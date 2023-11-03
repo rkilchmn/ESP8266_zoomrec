@@ -1,5 +1,5 @@
 {
-    "arduino.defaultBaudRate": 115200,
+    "arduino.defaultBaudRate": 74880,
     "files.associations": {
         "string": "cpp",
         "array": "cpp",

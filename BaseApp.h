@@ -22,7 +22,7 @@
 #endif
 
 #ifdef CONSOLE_HTTP
-#include "HttpRestStreamBuffered.h"
+#include "HttpStreamBuffered.h"
 #endif
 
 #ifdef WIFI_PORTAL
@@ -100,7 +100,7 @@ protected:
 #endif
 
 #ifdef CONSOLE_HTTP
-  HttpRestStreamBuffered *pBufferedHTTPRestStream = nullptr;
+  HttpStreamBuffered *pBufferedHTTPRestStream = nullptr;
 #endif
 
 #ifdef ARDUINO_OTA

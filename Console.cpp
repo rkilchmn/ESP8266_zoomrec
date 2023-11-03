@@ -19,6 +19,16 @@ size_t Console::write(uint8_t data)
     return primaryStream->write(data);
 }
 
+void Console::flush() {
+    // flush secondary output
+    if (SecondaryOutputStream != nullptr)
+        SecondaryOutputStream->flush();
+
+    // flush primary
+    return primaryStream->flush();
+}
+
+
 int Console::available()
 {
     // Check the availability of input data on the current stream
@@ -124,5 +134,7 @@ void Console::log(LogLevel level, const __FlashStringHelper *format, ...)
         va_end(arg);
         print(temp);
         print("\n");
+
+        Console::flush();
     }
 }
