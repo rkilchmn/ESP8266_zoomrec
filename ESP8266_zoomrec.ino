@@ -15,7 +15,7 @@ public:
   }
 
 private:
-  const int INPUTPINRESETSWITCH = D5;
+  const int INPUTPINRESETSWITCH = D1;
   const int OUTPUTPINPOWERBUTTON = D2;
 
   const int PC_ON = 1;
