@@ -206,9 +206,6 @@ private:
             time_t startTime = convertISO8601ToUnixTime(startStr);
             time_t endTime = convertISO8601ToUnixTime(endStr);
 
-            console.log(Console::DEBUG, F("event start %s unixtime=%d"), startStr, startTime);
-            console.log(Console::DEBUG, F("event end %s unixtime=%d"), endStr, endTime);
-
             // Get current UTC time
             time_t currentTime = time(nullptr);
 
