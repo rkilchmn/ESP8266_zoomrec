@@ -69,15 +69,29 @@ private:
     struct tm timeinfo;
     memset(&timeinfo, 0, sizeof(timeinfo));
 
-    // Parse the ISO8601 timestamp
-    sscanf(isoTimestamp, "%4d-%2d-%2dT%2d:%2d:%2d",
-           &timeinfo.tm_year, &timeinfo.tm_mon, &timeinfo.tm_mday,
-           &timeinfo.tm_hour, &timeinfo.tm_min, &timeinfo.tm_sec,
-           &timeinfo.tm_hour, &timeinfo.tm_min);
+    int offs_hour, offs_min;
+    char sign;
 
+    // Parse the ISO8601 timestamp
+    sscanf(isoTimestamp, "%4d-%2d-%2dT%2d:%2d:%2d%c%2d:%2d",
+           &timeinfo.tm_year, &timeinfo.tm_mon, &timeinfo.tm_mday,
+           &timeinfo.tm_hour, &timeinfo.tm_min, &timeinfo.tm_sec, &sign, &offs_hour, &offs_min);
+           
     // Adjust year and month for struct tm format
     timeinfo.tm_year -= 1900;
     timeinfo.tm_mon -= 1;
+
+    // find out if DST currently active 
+    time_t currentTime;
+    struct tm *localTimeInfo;
+    // Get current time
+    time(&currentTime);
+    // Convert to local time
+    localTimeInfo = localtime(&currentTime);
+
+    if (localTimeInfo != nullptr) {
+       timeinfo.tm_isdst = localTimeInfo->tm_isdst;
+    }
 
     // Convert to Unix time
     time_t unixTime = mktime(&timeinfo);
@@ -165,8 +179,6 @@ private:
         config.get("http_api_username", ""), config.get("http_api_password", ""), ""
       );
 
-      serializeJsonPretty(response, Serial);
-
       bool eventOngoing = false;
 
       if (response["code"].as<int>() == HTTP_CODE_OK) {    
@@ -194,8 +206,13 @@ private:
             time_t startTime = convertISO8601ToUnixTime(startStr);
             time_t endTime = convertISO8601ToUnixTime(endStr);
 
+            console.log(Console::DEBUG, F("event start %s unixtime=%d"), startStr, startTime);
+            console.log(Console::DEBUG, F("event end %s unixtime=%d"), endStr, endTime);
+
             // Get current UTC time
             time_t currentTime = time(nullptr);
+
+            console.log(Console::DEBUG, F("current time unixtime=%d"), endTime);
 
             // Check if the event has started and has not yet ended
             if ((currentTime >= startTime) && (currentTime <= endTime))
