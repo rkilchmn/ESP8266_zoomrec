@@ -165,6 +165,8 @@ private:
         config.get("http_api_username", ""), config.get("http_api_password", ""), ""
       );
 
+      serializeJsonPretty(response, Serial);
+
       bool eventOngoing = false;
 
       if (response["code"].as<int>() == HTTP_CODE_OK) {    
@@ -178,8 +180,8 @@ private:
           char startStr[30];
           char endStr[30];
 
-          strcpy(startStr, response["start_astimezone"]);
-          strcpy(endStr, response["end_astimezone"]);
+          strcpy(startStr, response["body"]["start_astimezone"]);
+          strcpy(endStr, response["body"]["end_astimezone"]);
 
           if ((startStr == nullptr || *startStr == '\0') ||
               (endStr == nullptr || *endStr == '\0'))

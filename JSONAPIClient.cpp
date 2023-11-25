@@ -69,7 +69,9 @@ DynamicJsonDocument JSONAPIClient::performRequest(
   {
     // Read the response JSON data into a DynamicJsonDocument
     String dataStr = http.getString();
-    DynamicJsonDocument dataDoc(min(int(response_capacity), int(dataStr.length() * 1.1))); // factor in some overhead for JSON
+    int responseAllocSize = dataStr.length();
+    responseAllocSize = responseAllocSize * 2;
+    DynamicJsonDocument dataDoc(responseAllocSize); // factor in some overhead for JSON
 
     DeserializationError error = deserializeJson(dataDoc, dataStr);
     if (error)
