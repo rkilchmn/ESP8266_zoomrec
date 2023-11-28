@@ -31,7 +31,9 @@ int JSONAPIClient::performRequest(
   // Initialize the HTTP client with the WiFi client and server/port
   HTTPClient http;
   String uri = String(url) + String(path);
-  http.begin(client, uri);
+  if (!http.begin(client, uri)) {
+    return HTTP_CODE_HTTP_BEGIN_FAILED;
+  }
 
   (debug) ? Serial.printf("uri=%s", uri.c_str()) : 0;
 

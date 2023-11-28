@@ -130,7 +130,7 @@ bool HttpStreamBuffered::callHttpApi( const char *data, long dataSize) {
         // print to serial for debugging error
         Serial.println(F("HttpStreamBuffered::callHttpApi Request:"));
         serializeJsonPretty(staticJsonRequestBody, Serial);
-        Serial.println(F("\nHttpStreamBuffered::callHttpApi Response:"));
+        Serial.printf("\nHttpStreamBuffered::callHttpApi httpCode=%d Response:", httpCode);
         serializeJsonPretty(staticJsonResponseBody, Serial);
         Serial.println();
         return false;
