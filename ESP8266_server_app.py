@@ -3,6 +3,7 @@ from flask_basicauth import BasicAuth # pip install flask-basicauth
 from datetime import datetime
 import os.path
 import sys
+from urllib.parse import unquote
 
 app = Flask(__name__)
 
@@ -73,6 +74,8 @@ def log_handler():
     data = request.json
     log_id = data.get('id')
     log_content = data.get('content')
+    if log_content:
+        log_content = unquote(log_content)
 
     if log_id is None or log_content is None:
         return jsonify({'error': 'id and content are required'}), 400
@@ -82,12 +85,14 @@ def log_handler():
     try:
         # Check if the log file exists
         if os.path.exists(log_filename):
-            with open(log_filename, 'a') as log_file:
-                log_file.write(log_content + '\n')
+            mode = 'a'
         else:
-            # Create a new log file
-            with open(log_filename, 'w') as log_file:
-                log_file.write(log_content + '\n')
+            mode = 'w'
+
+        # Open the log file in the determined mode
+        with open(log_filename, mode) as log_file:
+            log_file.write(log_content)
+
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 

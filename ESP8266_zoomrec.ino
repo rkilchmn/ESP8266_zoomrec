@@ -139,25 +139,6 @@ private:
     }
   }
 
-  void callLogServer() {
-
-    console.log(Console::DEBUG, F("Call Log Server "));
-
-    DynamicJsonDocument request  = DynamicJsonDocument(200);
-
-    request["id"] = "test_log";
-    request["content"] = "mytestlog content\n";
-    request.shrinkToFit();
-
-    DynamicJsonDocument response = JSONAPIClient::performRequest( 
-      JSONAPIClient::HTTP_METHOD_POST, "http://192.168.0.237:8080","/log", request,
-      "admin","myadminpw", "");      
-
-    serializeJsonPretty(response, console);
-    console.println();                              
-  }
-
-
   void checkUpdateStatus()
   {
     console.log(Console::DEBUG, F("PC powerState: %s"), getPowerState() == PC_ON ? "PC_ON" : "PC_OFF");
@@ -208,8 +189,6 @@ private:
 
             // Get current UTC time
             time_t currentTime = time(nullptr);
-
-            console.log(Console::DEBUG, F("current time unixtime=%d"), endTime);
 
             // Check if the event has started and has not yet ended
             if ((currentTime >= startTime) && (currentTime <= endTime))

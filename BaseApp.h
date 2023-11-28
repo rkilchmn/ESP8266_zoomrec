@@ -69,8 +69,8 @@ public:
 
 protected:
   String FIRMWARE_VERSION = String(__FILE__) + "-" + String(__DATE__) + "-" + String(__TIME__);
-  const uint8 WATCHDOG_SETUP_SECONDS = 30; // Setup should complete well within this time limit
-  const uint8 WATCHDOG_LOOP_SECONDS = 20;  // Loop should complete well within this time limit
+  const uint8 WATCHDOG_SETUP_SECONDS = 60; // Setup should complete well within this time limit
+  const uint8 WATCHDOG_LOOP_SECONDS = 40;  // Loop should complete well within this time limit
   Ticker watchdog;
 
   Console console;

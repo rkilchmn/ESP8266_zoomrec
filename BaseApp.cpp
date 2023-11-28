@@ -363,7 +363,7 @@ void BaseApp::setup()
   #ifdef CONSOLE_HTTP
   // int port = config.get("telnet_port", TELNET_DEFAULT_PORT);
   // console.log(Console::INFO, F("Telnet service started on port: %d"), port);
-  pBufferedHTTPRestStream = new HttpStreamBuffered("testid", "http://localhost:8080","/log", "admin","myadminpw");
+  pBufferedHTTPRestStream = new HttpStreamBuffered("testid", "http://192.168.0.237:8080", "/log", "admin","myadminpw");
   console.begin(*pBufferedHTTPRestStream);
   #endif
 #endif

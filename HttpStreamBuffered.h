@@ -11,11 +11,11 @@ class HttpStreamBuffered : public Stream
 protected:
   CircularBuffer<uint8_t, 1024> buffer;
   boolean overwriting;
-  const char *logId;
-  const char *url;
-  const char *path; 
-  const char *username;
-  const char *password;
+  char *logId;
+  char *url;
+  char *path; 
+  char *username;
+  char *password;
 
 public:
   HttpStreamBuffered(const char *logId, const char *url, const char *path, const char *http_username, const char *http_password);
