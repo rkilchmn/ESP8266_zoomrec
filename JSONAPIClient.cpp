@@ -7,7 +7,7 @@
 
 // Define a function to send an HTTPS request with basic authentication
 DynamicJsonDocument JSONAPIClient::performRequest(
-    int method, const char *url, const char *path, DynamicJsonDocument requestBody,
+    int method, const char *url, const char *path, JsonDocument& requestBody,
     const char *http_username, const char *http_password, const char *tls_fingerprint,
     size_t response_capacity)
 {
@@ -98,9 +98,6 @@ DynamicJsonDocument JSONAPIClient::performRequest(
       break;
   }
 
-  // Release the resources used by the HTTP client
-  http.end();
-
   if (httpCode == HTTP_CODE_OK)
   {
     // Read the response JSON data into a DynamicJsonDocument
@@ -122,6 +119,9 @@ DynamicJsonDocument JSONAPIClient::performRequest(
       }
     }
   }
+
+  // Release the resources used by the HTTP client
+  http.end();
 
   responseDoc["code"] = httpCode;
   responseDoc.shrinkToFit();

@@ -155,13 +155,14 @@ private:
       snprintf(path, sizeof(path), "/event/next?astimezone=%s&leadinsecs=%d&leadoutsecs=%d",
                urlEncode(config.get("timezone", "")).c_str(), config.get("leadin_secs", 60), config.get("leadout_secs", 60));
 
+      StaticJsonDocument<0> emptyRequest;
+      
       DynamicJsonDocument response = JSONAPIClient::performRequest(
-        JSONAPIClient::HTTP_METHOD_GET, config.get("http_api_base_url", ""), path, DynamicJsonDocument(0),
+        JSONAPIClient::HTTP_METHOD_GET, config.get("http_api_base_url", ""), path, emptyRequest,
         config.get("http_api_username", ""), config.get("http_api_password", ""), ""
       );
 
       bool eventOngoing = false;
-
       if (response["code"].as<int>() == HTTP_CODE_OK) {    
         if (response["body"].isNull())
         {
