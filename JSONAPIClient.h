@@ -13,10 +13,10 @@ public:
     static const int HTTP_METHOD_GET = 1;
     static const int HTTP_METHOD_POST = 2;
 
-    static DynamicJsonDocument performRequest (
-        int method, const char *url, const char *path, JsonDocument& requestBody,
-        const char *http_username, const char *http_password, const char *tls_fingerprint,
-        size_t response_capacity = 1024
+    static int performRequest (
+        int method, const char *url, const char *path, 
+        JsonDocument& requestHeader, JsonDocument& requestBody, JsonDocument& responseBody,
+        const char *http_username, const char *http_password, const char *tls_fingerprint
     );
 };
 

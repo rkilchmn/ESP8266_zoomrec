@@ -111,27 +111,27 @@ bool HttpStreamBuffered::callHttpApi( const char *data, long dataSize) {
     // return true;
 
     if (dataSize > 0) {
-      DynamicJsonDocument request  = DynamicJsonDocument(dataSize*2);
+      staticJsonRequestBody.clear();
 
-      request["id"] = logId;
+      staticJsonRequestBody["id"] = logId;
       String encoded = urlEncode(data);
-      request["content"] = encoded.c_str();
-      request.shrinkToFit();
+      staticJsonRequestBody["content"] = encoded.c_str();
 
-      DynamicJsonDocument response = JSONAPIClient::performRequest( 
-        JSONAPIClient::HTTP_METHOD_POST,  url, path, request,
+      int httpCode = JSONAPIClient::performRequest( 
+        JSONAPIClient::HTTP_METHOD_POST,  url, path, 
+        staticJsonRequestHeader, staticJsonRequestBody, staticJsonResponseBody, 
         username ,password, ""
       );    
 
-      if (response["code"].as<int>() == HTTP_CODE_OK) {
+      if (httpCode == HTTP_CODE_OK) {
         return true;
       }
       else {
         // print to serial for debugging error
         Serial.println(F("HttpStreamBuffered::callHttpApi Request:"));
-        serializeJsonPretty(request, Serial);
+        serializeJsonPretty(staticJsonRequestBody, Serial);
         Serial.println(F("\nHttpStreamBuffered::callHttpApi Response:"));
-        serializeJsonPretty(response, Serial);
+        serializeJsonPretty(staticJsonResponseBody, Serial);
         Serial.println();
         return false;
       }

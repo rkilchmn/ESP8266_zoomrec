@@ -155,16 +155,19 @@ private:
       snprintf(path, sizeof(path), "/event/next?astimezone=%s&leadinsecs=%d&leadoutsecs=%d",
                urlEncode(config.get("timezone", "")).c_str(), config.get("leadin_secs", 60), config.get("leadout_secs", 60));
 
-      StaticJsonDocument<0> emptyRequest;
-      
-      DynamicJsonDocument response = JSONAPIClient::performRequest(
-        JSONAPIClient::HTTP_METHOD_GET, config.get("http_api_base_url", ""), path, emptyRequest,
+      StaticJsonDocument<0> emptyRequestHeader;
+      StaticJsonDocument<0> emptyRequestBody;
+      StaticJsonDocument<1024> responseBody; 
+
+      int httpCode = JSONAPIClient::performRequest(
+        JSONAPIClient::HTTP_METHOD_GET, config.get("http_api_base_url", ""), path, 
+        emptyRequestHeader, emptyRequestBody, responseBody,
         config.get("http_api_username", ""), config.get("http_api_password", ""), ""
       );
 
       bool eventOngoing = false;
-      if (response["code"].as<int>() == HTTP_CODE_OK) {    
-        if (response["body"].isNull())
+      if (httpCode == HTTP_CODE_OK) {    
+        if (responseBody.isNull())
         {
           console.log(Console::DEBUG, F("response for /event/next is empty"));
         }
@@ -174,8 +177,8 @@ private:
           char startStr[30];
           char endStr[30];
 
-          strcpy(startStr, response["body"]["start_astimezone"]);
-          strcpy(endStr, response["body"]["end_astimezone"]);
+          strcpy(startStr, responseBody["start_astimezone"]);
+          strcpy(endStr, responseBody["end_astimezone"]);
 
           if ((startStr == nullptr || *startStr == '\0') ||
               (endStr == nullptr || *endStr == '\0'))
@@ -199,7 +202,7 @@ private:
       }
       else {
         // something failed
-        serializeJsonPretty(response, console);
+        serializeJsonPretty(responseBody, console);
         console.println();
       }
 

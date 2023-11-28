@@ -6,10 +6,10 @@
 #include <base64.h>
 
 // Define a function to send an HTTPS request with basic authentication
-DynamicJsonDocument JSONAPIClient::performRequest(
-    int method, const char *url, const char *path, JsonDocument& requestBody,
-    const char *http_username, const char *http_password, const char *tls_fingerprint,
-    size_t response_capacity)
+int JSONAPIClient::performRequest(
+    int method, const char *url, const char *path, 
+    JsonDocument& requestHeader, JsonDocument& requestBody, JsonDocument& responseBody,
+    const char *http_username, const char *http_password, const char *tls_fingerprint)
 {
   WiFiClient client;
 
@@ -40,8 +40,6 @@ DynamicJsonDocument JSONAPIClient::performRequest(
   String encodedAuth = base64::encode(auth);
   http.setAuthorization(encodedAuth);
 
-  DynamicJsonDocument responseDoc(response_capacity);
-
   // Send the HTTP request to the API endpoint
   int httpCode;
   String requestBodyStr;
@@ -57,7 +55,6 @@ DynamicJsonDocument JSONAPIClient::performRequest(
     break;
   case HTTP_METHOD_POST:
     // Serialize the JSON request body into a string
-    
     requestBodySize = serializeJson(requestBody, requestBodyStr);
    
     if (requestBodySize > 0) {
@@ -68,7 +65,6 @@ DynamicJsonDocument JSONAPIClient::performRequest(
       (debug) ? Serial.printf("requestBodySize=%d request=%s\n", requestBodySize, requestBodyStr.c_str()) : 0;
       
       // Send the HTTP POST request with the JSON request body
-      Serial.println("Before http.post");
       httpCode = http.POST(requestBodyStr);
     }
     else {
@@ -82,49 +78,17 @@ DynamicJsonDocument JSONAPIClient::performRequest(
     httpCode = HTTP_CODE_UNSUPPORTED_HTTP_METHOD;
   }
 
-  // provide error description 
-  switch (httpCode) {
-    case HTTP_CODE_CONNECTION_FAILED:
-      responseDoc["message"] = F("Connection Failed");
-      break;
-    case HTTP_CODE_UNSUPPORTED_HTTP_METHOD:
-      responseDoc["message"] = F("Unsuported HTTP method - only GET and POST supported");
-      break;
-    case HTTP_CODE_SERIALIZE_REQUESTBODY_FAILED:
-      responseDoc["message"] = F("Error in serializing JSON request body.");
-      break;    
-    default:
-      responseDoc["message"] = http.errorToString(httpCode);
-      break;
-  }
-
-  if (httpCode == HTTP_CODE_OK)
-  {
-    // Read the response JSON data into a DynamicJsonDocument
-    if (http.getSize() > 0) {
-      String dataStr = http.getString();
-      int responseAllocSize = dataStr.length();
-      responseAllocSize = responseAllocSize * 2;
-      DynamicJsonDocument dataDoc(responseAllocSize); // factor in some overhead for JSON
-
-      DeserializationError error = deserializeJson(dataDoc, dataStr);
-      if (error)
-      {
-        httpCode = HTTP_CODE_DESERIALIZE_RESPONSE_FAILED;
-        responseDoc["message"] = error.f_str();
-      }
-      else
-      {
-        responseDoc["body"] = dataDoc;
-      }
+  // Read the responseBody JSON data into a DynamicJsonDocument
+  if (http.getSize() > 0) {
+    DeserializationError error = deserializeJson(responseBody, http.getString());
+    if (error)
+    {
+      httpCode = HTTP_CODE_DESERIALIZE_RESPONSE_FAILED;
     }
   }
 
   // Release the resources used by the HTTP client
   http.end();
 
-  responseDoc["code"] = httpCode;
-  responseDoc.shrinkToFit();
-
-  return responseDoc;
+  return httpCode;
 }
