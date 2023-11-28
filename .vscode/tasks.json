@@ -19,6 +19,18 @@
           "${workspaceFolder}/build/${workspaceFolderBasename}.ino.bin"
         ],
         "problemMatcher": []
+      },
+      {
+          "label": "Run Server",
+          "type": "shell",
+          "command": "python3",
+          "args": [
+            "${workspaceFolder}/ESP8266_server_app.py",
+            "8080",
+            "./build/",
+            "./log/" 
+          ],
+          "problemMatcher": []
         }
     ]
   }
