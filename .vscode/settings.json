@@ -20,7 +20,12 @@
         "istream": "cpp",
         "ostream": "cpp",
         "streambuf": "cpp",
-        "new": "cpp"
+        "new": "cpp",
+        "future": "cpp",
+        "functional": "cpp",
+        "tuple": "cpp",
+        "utility": "cpp",
+        "variant": "cpp"
     },
     "easycode.codeLens": true
 }
