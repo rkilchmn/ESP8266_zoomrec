@@ -1,7 +1,7 @@
 #ifndef CONFIG_H
 #define CONFIG_H
 
-#include <ArduinoJson.h> // git clone https://github.com/bblanchon/ArduinoJson.git
+#include <ArduinoJson.h>
 #include <ESP8266WebServer.h>
 
 #include "Console.h"

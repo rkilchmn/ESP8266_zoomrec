@@ -2,7 +2,7 @@
 #define STREAMBUFFERED_H
 
 #include <Arduino.h>
-#include <CircularBuffer.h> // git clone https://github.com/JAndrassy/TelnetStream.git
+#include "CircularBuffer.hpp"
 
 #include "JSONAPIClient.h"
 

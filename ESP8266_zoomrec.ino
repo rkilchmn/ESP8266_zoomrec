@@ -1,6 +1,6 @@
 #include <Arduino.h>
-#include <UrlEncode.h>   // git clone https://github.com/plageoj/urlencode.git
-#include <ArduinoJson.h> // git clone https://github.com/bblanchon/ArduinoJson.git
+#include <UrlEncode.h>
+#include <ArduinoJson.h>
 
 #include "BaseApp.h"
 #include "JSONAPIClient.h"

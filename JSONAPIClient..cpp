@@ -2,7 +2,7 @@
 
 #include <ESP8266HTTPClient.h>
 #include <WiFiClientSecure.h>
-#include <ArduinoJson.h> // git clone https://github.com/bblanchon/ArduinoJson.git
+#include <ArduinoJson.h>
 #include <base64.h>
 
 // Define a function to send an HTTPS request with basic authentication
@@ -75,7 +75,7 @@ DynamicJsonDocument JSONAPIClient::performRequest(
     if (error)
     {
       httpCode = HTTP_CODE_DESERIALIZE_RESPONSE_FAILED;
-      responseDoc["message"] = error.f_str();
+      responseDoc["message"] = error.c_str();
     }
     else
     {
