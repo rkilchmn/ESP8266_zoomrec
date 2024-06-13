@@ -1,5 +1,4 @@
 {
-    "arduino.defaultBaudRate": 115200,
     "files.associations": {
         "string": "cpp",
         "array": "cpp",
@@ -14,6 +13,19 @@
         "cmath": "cpp",
         "random": "cpp",
         "*.tpp": "cpp",
-        "cstdio": "cpp"
-    }
+        "cstdio": "cpp",
+        "*.tcc": "cpp",
+        "memory_resource": "cpp",
+        "memory": "cpp",
+        "istream": "cpp",
+        "ostream": "cpp",
+        "streambuf": "cpp",
+        "new": "cpp",
+        "future": "cpp",
+        "functional": "cpp",
+        "tuple": "cpp",
+        "utility": "cpp",
+        "variant": "cpp"
+    },
+    "easycode.codeLens": true
 }

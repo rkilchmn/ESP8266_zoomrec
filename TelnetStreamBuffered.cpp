@@ -60,8 +60,5 @@ void TelnetStreamBuffered::flushBufferedData()
   if (flushed > 0)
   {
     overwriting = false;
-    Serial.printf("TelnetStreamBuffered: flushed buffer %d\n", flushed);
   }
 }
-
-TelnetStreamBuffered BufferedTelnetStream(23);

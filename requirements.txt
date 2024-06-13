@@ -1,0 +1,8 @@
+# required libraries 
+git clone https://github.com/esp8266/ESPWebServer.git
+git clone https://github.com/plageoj/urlencode.git
+git clone https://github.com/bblanchon/ArduinoJson.git
+git clone https://github.com/tzapu/WiFiManager.git
+git clone https://github.com/highno/rtcvars.git
+git clone https://github.com/rlogiacco/CircularBuffer
+git clone https://github.com/JAndrassy/TelnetStream.git

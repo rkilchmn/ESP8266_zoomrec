@@ -3,13 +3,15 @@
 
 #include <Arduino.h>
 #include <TelnetStream.h>
-#include <CircularBuffer.h>
+#include <CircularBuffer.hpp>
 
-class TelnetStreamBuffered : public TelnetStreamClass {
+class TelnetStreamBuffered : public TelnetStreamClass
+{
 protected:
   CircularBuffer<uint8_t, 512> buffer;
 
-  boolean overwriting; 
+  boolean overwriting;
+
 public:
   TelnetStreamBuffered(uint16_t port);
 
@@ -20,7 +22,5 @@ public:
 private:
   void flushBufferedData();
 };
-
-extern TelnetStreamBuffered BufferedTelnetStream;
 
 #endif // TELNETSTREAMBUFFERED_H
