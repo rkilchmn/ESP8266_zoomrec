@@ -363,8 +363,17 @@ void BaseApp::setup()
   #ifdef CONSOLE_HTTP
   // int port = config.get("telnet_port", TELNET_DEFAULT_PORT);
   // console.log(Console::INFO, F("Telnet service started on port: %d"), port);
-  pBufferedHTTPRestStream = new HttpStreamBuffered("testid", "http://localhost:8080","/log", "admin","myadminpw");
-  console.begin(*pBufferedHTTPRestStream);
+  const char* http_log_url = config.get("http_log_url");
+  if (!strlen(http_log_url)) { // empty
+    console.log(Console::ERROR, F("Missing configuration for 'http_log_url'. HTTP logging not started."));
+  }
+  else {
+    pBufferedHTTPRestStream = new HttpStreamBuffered(
+      config.get("http_log_id", FIRMWARE_VERSION.c_str()), http_log_url, "/log",
+      config.get("http_log_username"), config.get("http_log_password"));
+      console.log(Console::INFO, F("Starting HTTP logging to %s."), http_log_url);
+    console.begin(*pBufferedHTTPRestStream, Serial);
+  }
   #endif
 #endif
 

@@ -6,16 +6,18 @@
 
 #include "JSONAPIClient.h"
 
+#define CIRCULAR_BUFFER_SIZE 1024
+
 class HttpStreamBuffered : public Stream
 {
 protected:
-  CircularBuffer<uint8_t, 1024> buffer;
+  CircularBuffer<uint8_t, CIRCULAR_BUFFER_SIZE> buffer;
   boolean overwriting;
-  const char *logId;
-  const char *url;
-  const char *path; 
-  const char *username;
-  const char *password;
+  char *logId;
+  char *url;
+  char *path; 
+  char *username;
+  char *password;
 
 public:
   HttpStreamBuffered(const char *logId, const char *url, const char *path, const char *http_username, const char *http_password);
@@ -33,6 +35,9 @@ public:
 private:
   void flushBufferedData();
   bool callHttpApi( const char *data, long dataSize);
+  StaticJsonDocument<0> staticJsonRequestHeader;
+  StaticJsonDocument<CIRCULAR_BUFFER_SIZE + 100> staticJsonRequestBody;
+  StaticJsonDocument<100> staticJsonResponseBody;
 };
 
 #endif // STREAMBUFFERED_H

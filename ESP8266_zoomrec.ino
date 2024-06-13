@@ -15,7 +15,7 @@ public:
   }
 
 private:
-  const int INPUTPINRESETSWITCH = D5;
+  const int INPUTPINRESETSWITCH = D1;
   const int OUTPUTPINPOWERBUTTON = D2;
 
   const int PC_ON = 1;
@@ -69,15 +69,29 @@ private:
     struct tm timeinfo;
     memset(&timeinfo, 0, sizeof(timeinfo));
 
-    // Parse the ISO8601 timestamp
-    sscanf(isoTimestamp, "%4d-%2d-%2dT%2d:%2d:%2d",
-           &timeinfo.tm_year, &timeinfo.tm_mon, &timeinfo.tm_mday,
-           &timeinfo.tm_hour, &timeinfo.tm_min, &timeinfo.tm_sec,
-           &timeinfo.tm_hour, &timeinfo.tm_min);
+    int offs_hour, offs_min;
+    char sign;
 
+    // Parse the ISO8601 timestamp
+    sscanf(isoTimestamp, "%4d-%2d-%2dT%2d:%2d:%2d%c%2d:%2d",
+           &timeinfo.tm_year, &timeinfo.tm_mon, &timeinfo.tm_mday,
+           &timeinfo.tm_hour, &timeinfo.tm_min, &timeinfo.tm_sec, &sign, &offs_hour, &offs_min);
+           
     // Adjust year and month for struct tm format
     timeinfo.tm_year -= 1900;
     timeinfo.tm_mon -= 1;
+
+    // find out if DST currently active 
+    time_t currentTime;
+    struct tm *localTimeInfo;
+    // Get current time
+    time(&currentTime);
+    // Convert to local time
+    localTimeInfo = localtime(&currentTime);
+
+    if (localTimeInfo != nullptr) {
+       timeinfo.tm_isdst = localTimeInfo->tm_isdst;
+    }
 
     // Convert to Unix time
     time_t unixTime = mktime(&timeinfo);
@@ -125,25 +139,6 @@ private:
     }
   }
 
-  void callLogServer() {
-
-    console.log(Console::DEBUG, F("Call Log Server "));
-
-    DynamicJsonDocument request  = DynamicJsonDocument(200);
-
-    request["id"] = "test_log";
-    request["content"] = "mytestlog content\n";
-    request.shrinkToFit();
-
-    DynamicJsonDocument response = JSONAPIClient::performRequest( 
-      JSONAPIClient::HTTP_METHOD_POST, "http://192.168.0.237:8080","/log", request,
-      "admin","myadminpw", "");      
-
-    serializeJsonPretty(response, console);
-    console.println();                              
-  }
-
-
   void checkUpdateStatus()
   {
     console.log(Console::DEBUG, F("PC powerState: %s"), getPowerState() == PC_ON ? "PC_ON" : "PC_OFF");
@@ -160,15 +155,19 @@ private:
       snprintf(path, sizeof(path), "/event/next?astimezone=%s&leadinsecs=%d&leadoutsecs=%d",
                urlEncode(config.get("timezone", "")).c_str(), config.get("leadin_secs", 60), config.get("leadout_secs", 60));
 
-      DynamicJsonDocument response = JSONAPIClient::performRequest(
-        JSONAPIClient::HTTP_METHOD_GET, config.get("http_api_base_url", ""), path, DynamicJsonDocument(0),
+      StaticJsonDocument<0> emptyRequestHeader;
+      StaticJsonDocument<0> emptyRequestBody;
+      StaticJsonDocument<1024> responseBody; 
+
+      int httpCode = JSONAPIClient::performRequest(
+        JSONAPIClient::HTTP_METHOD_GET, config.get("http_api_base_url", ""), path, 
+        emptyRequestHeader, emptyRequestBody, responseBody,
         config.get("http_api_username", ""), config.get("http_api_password", ""), ""
       );
 
       bool eventOngoing = false;
-
-      if (response["code"].as<int>() == HTTP_CODE_OK) {    
-        if (response["body"].isNull())
+      if (httpCode == HTTP_CODE_OK) {    
+        if (responseBody.isNull())
         {
           console.log(Console::DEBUG, F("response for /event/next is empty"));
         }
@@ -178,8 +177,8 @@ private:
           char startStr[30];
           char endStr[30];
 
-          strcpy(startStr, response["start_astimezone"]);
-          strcpy(endStr, response["end_astimezone"]);
+          strcpy(startStr, responseBody["start_astimezone"]);
+          strcpy(endStr, responseBody["end_astimezone"]);
 
           if ((startStr == nullptr || *startStr == '\0') ||
               (endStr == nullptr || *endStr == '\0'))
@@ -203,7 +202,7 @@ private:
       }
       else {
         // something failed
-        serializeJsonPretty(response, console);
+        serializeJsonPretty(responseBody, console);
         console.println();
       }
 

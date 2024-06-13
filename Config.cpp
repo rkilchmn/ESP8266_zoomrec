@@ -65,26 +65,36 @@ void Config::handleOTAServerRequest()
     {
       // Parse JSON payload
       DynamicJsonDocument configDoc(JSON_CONFIG_MAXSIZE);
-      deserializeJson( configDoc, server.arg("plain"));
-      configDoc.shrinkToFit();
-
-      // Store JSON payload in SPIFFS
-      File configFile = SPIFFS.open(JSON_CONFIG_OTA_FILE, "w");
-      if (configFile)
-      {
-        serializeJson(configDoc, configFile);
-        configFile.close();
-        // re-read from filesystem & output
-        retrieveJSON(); // refresh config
-        if (refConsole != nullptr) {
-          refConsole->log(Console::INFO, F("OTA Config update received from IP: %s"), server.client().remoteIP().toString().c_str());
-          print( refConsole);
-        }
-        server.send(200);
+      DeserializationError error = deserializeJson( configDoc, server.arg("plain"));
+      if (error) {
+        server.send(400, "text/plain", error.f_str());
       }
-      else
-      {
-        server.send(500, "text/plain", "Failed to open config file for writing");
+      else {
+        configDoc.shrinkToFit();
+
+        // Store JSON payload in SPIFFS
+        File configFile = SPIFFS.open(JSON_CONFIG_OTA_FILE, "w");
+        if (configFile)
+        {
+          int size = serializeJson(configDoc, configFile);
+          if (size > 0) {
+            configFile.close();
+            // re-read from filesystem & output
+            retrieveJSON(); // refresh config
+            if (refConsole != nullptr) {
+              refConsole->log(Console::INFO, F("OTA Config update received from IP: %s"), server.client().remoteIP().toString().c_str());
+              print( refConsole);
+            }
+            server.send(200);
+          }
+          else {
+            server.send(400, "text/plain", "Config file size 0");
+          }
+        }
+        else
+        {
+          server.send(400, "text/plain", "Failed to open config file for writing");
+        }
       }
     }
     else
