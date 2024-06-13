@@ -165,8 +165,8 @@ private:
         config.get("http_api_username", ""), config.get("http_api_password", ""), ""
       );
 
-      bool eventOngoing = false;
-      if (httpCode == HTTP_CODE_OK) {    
+      if (httpCode == HTTP_CODE_OK) {  
+        bool eventOngoing = false;  
         if (responseBody.isNull())
         {
           console.log(Console::DEBUG, F("response for /event/next is empty"));
@@ -199,34 +199,35 @@ private:
               eventOngoing = true;
           }
         }
+
+        // update PC power status
+        if (eventOngoing)
+        {
+          console.log(Console::DEBUG, F("Event ongoing..."));
+          if (getPowerState() == PC_OFF)
+          {
+            console.log(Console::INFO, F("Starting PC..."));
+            startPC();
+            changedPowerState = true; // we changed power state
+          }
+        }
+        else
+        {
+          console.log(Console::DEBUG, F("No event ongoing..."));
+          if (getPowerState() == PC_ON)
+          {
+            if (changedPowerState) { // did we change the power state?
+              console.log(Console::INFO, F("Shutting down PC..."));
+              shutDownPC();
+              changedPowerState = false; // reset
+            }
+          }
+        }
       }
       else {
         // something failed
         serializeJsonPretty(responseBody, console);
         console.println();
-      }
-
-      if (eventOngoing)
-      {
-        console.log(Console::DEBUG, F("Event ongoing..."));
-        if (getPowerState() == PC_OFF)
-        {
-          console.log(Console::INFO, F("Starting PC..."));
-          startPC();
-          changedPowerState = true; // we changed power state
-        }
-      }
-      else
-      {
-        console.log(Console::DEBUG, F("No event ongoing..."));
-        if (getPowerState() == PC_ON)
-        {
-          if (changedPowerState) { // did we change the power state?
-            console.log(Console::INFO, F("Shutting down PC..."));
-            shutDownPC();
-            changedPowerState = false; // reset
-          }
-        }
       }
     }
 
