@@ -67,7 +67,7 @@ void Config::handleOTAServerRequest()
       DynamicJsonDocument configDoc(JSON_CONFIG_MAXSIZE);
       DeserializationError error = deserializeJson( configDoc, server.arg("plain"));
       if (error) {
-        server.send(400, "text/plain", error.f_str());
+        server.send(400, "text/plain", error.c_str());
       }
       else {
         configDoc.shrinkToFit();
