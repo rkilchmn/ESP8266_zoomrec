@@ -2,7 +2,7 @@
 
 #include <ESP8266HTTPClient.h>
 #include <WiFiClientSecure.h>
-#include <ArduinoJson.h> // git clone https://github.com/bblanchon/ArduinoJson.git
+#include <ArduinoJson.h>
 #include <base64.h>
 
 // Define a function to send an HTTPS request with basic authentication

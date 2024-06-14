@@ -1,7 +1,7 @@
 #include "HttpStreamBuffered.h"
 #include "JSONAPIClient.h"
 
-#include <UrlEncode.h>   // git clone https://github.com/plageoj/urlencode.git
+#include <UrlEncode.h>
 
 
 HttpStreamBuffered::HttpStreamBuffered(const char *logId, const char *url, const char *path, const char *http_username, const char *http_password) : overwriting(false) {
