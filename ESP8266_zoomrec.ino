@@ -226,6 +226,7 @@ private:
       }
       else {
         // something failed
+        console.log(Console::INFO, F("HTTP JSON API Call to '/event/next' failed: httpCode=%d Response:"), httpCode);
         serializeJsonPretty(responseBody, console);
         console.println();
       }

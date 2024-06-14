@@ -22,10 +22,10 @@ public:
 protected:
     static const size_t JSON_CONFIG_MAXSIZE = 4096;
     const char *JSON_CONFIG_OTA_FILE = "/config.json";
-    const char *JSON_CONFIG_USERNAME = "admin";
-    const char *JSON_CONFIG_PASSWD = "myadminpw";
+    const char *JSON_CONFIG_USERNAME = "user";
+    const char *JSON_CONFIG_PASSWD = "myuserpw";
     const char *JSON_CONFIG_OTA_PATH = "/config";
-    static const int JSON_CONFIG_OTA_PORT = 80;
+    static const int JSON_CONFIG_OTA_PORT = 8080;
 
     DynamicJsonDocument doc;
     ESP8266WebServer server;

@@ -1,5 +1,5 @@
-from flask import Flask, request, Response, jsonify, send_file # pip install flask
-from flask_basicauth import BasicAuth # pip install flask-basicauth
+from flask import Flask, request, Response, jsonify, send_file
+from flask_basicauth import BasicAuth
 from datetime import datetime
 import os.path
 import sys
@@ -10,7 +10,7 @@ app = Flask(__name__)
 # default 
 PORT = 8080
 FIRMWARE_PATH = "./build/" 
-LOG_PATH = "./log/" 
+LOG_PATH = "./build/" 
 
 # override from command line
 if len(sys.argv)>= 1:
@@ -23,8 +23,8 @@ if len(sys.argv) >= 3:
     LOG_PATH = sys.argv[3]
 
 # Configure basic authentication
-app.config['BASIC_AUTH_USERNAME'] = "admin"
-app.config['BASIC_AUTH_PASSWORD'] = "myadminpw"
+app.config['BASIC_AUTH_USERNAME'] = "user"
+app.config['BASIC_AUTH_PASSWORD'] = "myuserpw"
 basic_auth = BasicAuth(app)
 
 def get_file_mtime(file_path):
@@ -62,7 +62,7 @@ def get_firmware():
         return 'Firmware not found', 404
     firmware_file_mtime = get_file_mtime(filepath)
     # difference needs to be min 60s as there are some small time differences
-    if (firmware_file_mtime - firmware_version_mtime).total_seconds() >= 60:
+    if (firmware_file_mtime - firmware_version_mtime).total_seconds() >= 3*60:
         return send_file(filepath, as_attachment=True, mimetype='application/octet-stream')
     else:
         return '', 304  # Not Modified
@@ -83,6 +83,7 @@ def log_handler():
     log_filename = f'{LOG_PATH}{log_id}.log'
 
     try:
+        log_filename = log_filename.replace(':', '')
         # Check if the log file exists
         if os.path.exists(log_filename):
             mode = 'a'
@@ -94,6 +95,7 @@ def log_handler():
             log_file.write(log_content)
 
     except Exception as e:
+        print( e)
         return jsonify({'error': str(e)}), 500
 
     return jsonify({'message': 'Log appended successfully'}), 200

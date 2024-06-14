@@ -1,0 +1,23 @@
+{
+    "serial_baud" : 74880,
+    "log_level" : 10, 
+    "deep_sleep_option" : 2,
+    "http_api_username": "user",
+    "http_api_password": "myuserpw",
+    "http_api_base_url": "http://192.168.0.239:8080",
+    "timezone_ntp" : "AEST-10AEDT,M10.1.0,M4.1.0/3",
+    "timezone" : "Australia/Sydney",
+    "http_ota_url": "http://192.168.0.239:8080/firmware",
+    "http_ota_username": "user",
+    "http_ota_password": "myuserpw",
+    "json_config_ota_username": "user",
+    "json_config_ota_password": "myuserpw",
+    "json_config_ota_port": 8080,
+    "json_config_ota_path": "/config",
+    "telnet_port": 23,
+    "leadin_secs": 120,
+    "leadout_secs": 300,
+    "http_log_url": "http://192.168.0.239:8080",
+    "http_log_username": "user",
+    "http_log_password": "myuserpw"
+}

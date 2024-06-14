@@ -49,7 +49,6 @@ size_t HttpStreamBuffered::write(uint8_t val)
   else
   {
     flushBufferedData();
-    Serial.println("Recursive HttpStreamBuffered::write(val)");Serial.println("Recursive HttpStreamBuffered::write(val)");
     return HttpStreamBuffered::write(val);
   }
 }
@@ -65,7 +64,6 @@ size_t HttpStreamBuffered::write(const uint8_t *buf, size_t size)
   }
   else {
     flushBufferedData();
-    Serial.println("Recursive HttpStreamBuffered::write( buf, size)");
     return HttpStreamBuffered::write( buf, size); // call itself to write - buffer should be flushdatanow
   }
 }
@@ -128,9 +126,9 @@ bool HttpStreamBuffered::callHttpApi( const char *data, long dataSize) {
       }
       else {
         // print to serial for debugging error
-        Serial.println(F("HttpStreamBuffered::callHttpApi Request:"));
-        serializeJsonPretty(staticJsonRequestBody, Serial);
-        Serial.printf("\nHttpStreamBuffered::callHttpApi httpCode=%d Response:", httpCode);
+        // Serial.println(F("HttpStreamBuffered::callHttpApi Request:"));
+        // serializeJsonPretty(staticJsonRequestBody, Serial);
+        Serial.printf("\nHttpStreamBuffered::callHttpApi url='%s' path='%s' httpCode=%d Response:", url, path, httpCode);
         serializeJsonPretty(staticJsonResponseBody, Serial);
         Serial.println();
         return false;

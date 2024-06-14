@@ -84,6 +84,7 @@ protected:
   String getResetReasonString(uint8_t reason);
   void timeoutCallback();
   bool connectWiFi();
+  void logEnabledFeatures();
 
 #ifdef WIFI_PORTAL
   // const uint8 WIFI_PORTAL_TRIGGER_PIN = 4; // A low input on this pin will trigger the Wifi Manager Console at boot. Comment out to disable.
@@ -104,15 +105,15 @@ protected:
 #endif
 
 #ifdef ARDUINO_OTA
-  const int ARDUINO_OTA_PORT = 8266;
-  const char *ARDUINO_OTA_PASSWD = "myadminpw";
+  const int ARDUINO_OTA_PORT = 8081;
+  const char *ARDUINO_OTA_PASSWD = "myuserpw";
   void setupArduinoOta();
 #endif
 
 #ifdef HTTP_OTA
   const char *HTTP_OTA_URL = "http://192.168.0.1:8080/firmware";
-  const char *HTTP_OTA_USERNAME = "admin";
-  const char *HTTP_OTA_PASSWORD = "myadminpw";
+  const char *HTTP_OTA_USERNAME = "user";
+  const char *HTTP_OTA_PASSWORD = "myuserpw";
   void setupHTTPOTA();
   boolean performHttpOtaUpdate();
 #endif
@@ -154,5 +155,7 @@ protected:
 
   // Add your class members and methods here based on the provided code.
 };
+
+
 
 #endif // BASEAPP_H

@@ -30,8 +30,8 @@ BaseApp::~BaseApp()
 #endif
 }
 
-
-void BaseApp::AppFirmwareVersion() {
+void BaseApp::AppFirmwareVersion()
+{
   FIRMWARE_VERSION = String(__FILE__) + "-" + String(__DATE__) + "-" + String(__TIME__);
 }
 
@@ -96,8 +96,9 @@ void BaseApp::time_is_set(boolean from_sntp /* <= this optional parameter can be
   ntp_set = true;
 
   time_t now = time(nullptr);
-  console.log(Console::INFO, F("NTP time received from_sntp=%s"), from_sntp ? "true" : "false");
-  console.log(Console::INFO, F("Current local time: %s"), ctime(&now));
+  // causes dumps with HTTP CONSOLE???
+  // console.log(Console::INFO, F("NTP time received from_sntp=%s"), from_sntp ? "true" : "false");
+  // console.log(Console::INFO, F("Current local time: %s"), ctime(&now));
 }
 
 uint32_t BaseApp::sntp_startup_delay_MS_rfc_not_less_than_60000()
@@ -147,7 +148,7 @@ boolean BaseApp::performHttpOtaUpdate()
   String http_ota_password = config.get("http_ota_password", HTTP_OTA_PASSWORD);
 
   // Check server for firmware updates
-  console.log(Console::INFO, F("Checking for firmware updates from %s"), http_ota_url.c_str());
+  console.log(Console::INFO, F("Checking for firmware update via HTTP OTA from %s"), http_ota_url.c_str());
 
   WiFiClient client;
 #ifdef LED_STATUS_FLASH
@@ -158,18 +159,19 @@ boolean BaseApp::performHttpOtaUpdate()
   if (!http_ota_username.isEmpty() && !http_ota_password.isEmpty())
     ESPhttpUpdate.setAuthorization(http_ota_username, http_ota_password);
 
+  watchdog.detach();
   switch (ESPhttpUpdate.update(client, http_ota_url, FIRMWARE_VERSION))
   {
   case HTTP_UPDATE_FAILED:
-    console.log(Console::WARNING, F("HTTP update failed: Code (%d) %s"), ESPhttpUpdate.getLastError(), ESPhttpUpdate.getLastErrorString().c_str());
+    console.log(Console::WARNING, F("Firmware update via HTTP OTA failed: Code (%d) %s"), ESPhttpUpdate.getLastError(), ESPhttpUpdate.getLastErrorString().c_str());
     return false;
 
   case HTTP_UPDATE_NO_UPDATES:
-    console.log(Console::INFO, F("No updates"));
+    console.log(Console::INFO, F("No firmware update available via HTTP OTA "));
     return false;
 
   case HTTP_UPDATE_OK:
-    console.log(Console::INFO, F("Update OK"));
+    console.log(Console::INFO, F("Firmware update via HTTP OTA successfull"));
     return true;
   default:
     return false;
@@ -188,7 +190,7 @@ boolean BaseApp::connectWiFi()
 
   // Watchdog timer - resets if setup takes longer than allocated time
   watchdog.once(WATCHDOG_SETUP_SECONDS, [this]()
-                {  timeoutCallback(); });
+                { timeoutCallback(); });
 
   // try connect using previous connection details stored in eeprom
   if (WiFi.SSID().length() > 0)
@@ -342,6 +344,7 @@ void BaseApp::setup()
   console.println(); // newline after garbage from startup
   AppFirmwareVersion();
   console.log(Console::INFO, F("Current firmware version: '%s'"), (FIRMWARE_VERSION).c_str());
+  logEnabledFeatures();
 
   console.log(Console::DEBUG, F("Start of initialization: Reset Reason='%s'"), getResetReasonString(ESP.getResetInfoPtr()->reason).c_str());
 
@@ -360,21 +363,23 @@ void BaseApp::setup()
   pBufferedTelnetStream->begin(port);
   console.begin(*pBufferedTelnetStream, Serial); // continue output to Serial
 #else
-  #ifdef CONSOLE_HTTP
+#ifdef CONSOLE_HTTP
   // int port = config.get("telnet_port", TELNET_DEFAULT_PORT);
   // console.log(Console::INFO, F("Telnet service started on port: %d"), port);
-  const char* http_log_url = config.get("http_log_url");
-  if (!strlen(http_log_url)) { // empty
+  const char *http_log_url = config.get("http_log_url");
+  if (!strlen(http_log_url))
+  { // empty
     console.log(Console::ERROR, F("Missing configuration for 'http_log_url'. HTTP logging not started."));
   }
-  else {
+  else
+  {
     pBufferedHTTPRestStream = new HttpStreamBuffered(
-      config.get("http_log_id", FIRMWARE_VERSION.c_str()), http_log_url, "/log",
-      config.get("http_log_username"), config.get("http_log_password"));
-      console.log(Console::INFO, F("Starting HTTP logging to %s."), http_log_url);
+        config.get("http_log_id", FIRMWARE_VERSION.c_str()), http_log_url, "/log",
+        config.get("http_log_username"), config.get("http_log_password"));
+    console.log(Console::INFO, F("Starting HTTP logging to %s."), http_log_url);
     console.begin(*pBufferedHTTPRestStream, Serial);
   }
-  #endif
+#endif
 #endif
 
   // Print config
@@ -397,9 +402,10 @@ void BaseApp::setup()
 #endif
 
 #ifdef DEEP_SLEEP_SECONDS
-  if (!deepSleepState.loadFromRTC()) {   
-    console.log( Console::DEBUG, F("DeepSleepState cold boot - calling appDeepSleepStateInit for state initialization."));
-    AppDeepSleepStateInit(); 
+  if (!deepSleepState.loadFromRTC())
+  {
+    console.log(Console::DEBUG, F("DeepSleepState cold boot - calling appDeepSleepStateInit for state initialization."));
+    AppDeepSleepStateInit();
   }
 #endif
 
@@ -445,15 +451,15 @@ void BaseApp::loop()
 
   // Watchdog timer - resets if setup takes longer than allocated time
   watchdog.once(WATCHDOG_LOOP_SECONDS, [this]()
-                {  timeoutCallback(); });
+                { timeoutCallback(); });
 
 #ifdef TIMER_INTERVAL_MILLIS
-    // https://www.norwegiancreations.com/2018/10/arduino-tutorial-avoiding-the-overflow-issue-when-using-millis-and-micros/
-    if ((unsigned long)(millis() - timer_interval) > TIMER_INTERVAL_MILLIS)
-    {
-      timer_interval = millis();
-      AppIntervall();
-    }
+  // https://www.norwegiancreations.com/2018/10/arduino-tutorial-avoiding-the-overflow-issue-when-using-millis-and-micros/
+  if ((unsigned long)(millis() - timer_interval) > TIMER_INTERVAL_MILLIS)
+  {
+    timer_interval = millis();
+    AppIntervall();
+  }
 #endif
 
   AppLoop();
@@ -462,30 +468,82 @@ void BaseApp::loop()
 
 #ifdef DEEP_SLEEP_SECONDS
 
-    // no deep sleep after normal power up to allow for OTA updates
-    bool expired = false;
-    if ((unsigned long)(millis() - timer_coldboot) > DEEP_SLEEP_STARTUP_SECONDS * 1000)
-    {
-      timer_coldboot = millis();
-      expired = true;
-    }
+  // no deep sleep after normal power up to allow for OTA updates
+  bool expired = false;
+  if ((unsigned long)(millis() - timer_coldboot) > DEEP_SLEEP_STARTUP_SECONDS * 1000)
+  {
+    timer_coldboot = millis();
+    expired = true;
+  }
 
-    if ((ESP.getResetInfoPtr()->reason == REASON_DEEP_SLEEP_AWAKE) || expired)
+  if ((ESP.getResetInfoPtr()->reason == REASON_DEEP_SLEEP_AWAKE) || expired)
+  {
+    if (preventDeepSleep)
+      console.log(Console::DEBUG, F("Prevented from deep sleep: preventDeepSleep=%d"), preventDeepSleep);
+    else
     {
-      if (preventDeepSleep)
-         console.log(Console::DEBUG, F("Prevented from deep sleep: preventDeepSleep=%d"), preventDeepSleep);
-      else {
-        // Enter DeepSleep
-        deepSleepState.saveToRTC(); 
-        console.log(Console::DEBUG, F("Entering deep sleep for %d seconds..."), DEEP_SLEEP_SECONDS);
-        console.flush();
-        ESP.deepSleep(DEEP_SLEEP_SECONDS * 1000000, WAKE_RF_DEFAULT);
-        // Do nothing while we wait for sleep to overcome us
-        while (true)
-        {
-        }
+      // Enter DeepSleep
+      deepSleepState.saveToRTC();
+      console.log(Console::DEBUG, F("Entering deep sleep for %d seconds..."), DEEP_SLEEP_SECONDS);
+      console.flush();
+      ESP.deepSleep(DEEP_SLEEP_SECONDS * 1000000, WAKE_RF_DEFAULT);
+      // Do nothing while we wait for sleep to overcome us
+      while (true)
+      {
       }
     }
+  }
 #endif
+}
 
+// Function to log enabled features
+void BaseApp::logEnabledFeatures() {
+    // Check and log each feature
+    #ifdef WIFI_PORTAL
+    console.log(Console::INFO, F("Feature Enabled: WiFi Configuration Portal"));
+    #endif
+
+    #ifdef WPS_CONFIG
+    console.log(Console::INFO, F("Feature Enabled: WPS Configuration"));
+    #endif
+
+    #ifdef ARDUINO_OTA
+    console.log(Console::INFO, F("Feature Enabled: Arduino OTA Updates"));
+    #endif
+
+    #ifdef HTTP_OTA
+    console.log(Console::INFO, F("Feature Enabled: HTTP OTA Updates"));
+    #endif
+
+    #ifdef LED_STATUS_FLASH
+    console.log(Console::INFO, F("Feature Enabled: LED Status Flash"));
+    #endif
+
+    #ifdef DEEP_SLEEP_SECONDS
+    console.log(Console::INFO, F("Feature Enabled: Deep Sleep Mode (Seconds: %d, Startup Seconds: %d)"), DEEP_SLEEP_SECONDS, DEEP_SLEEP_STARTUP_SECONDS);
+    #endif
+
+    #ifdef JSON_CONFIG_OTA
+    console.log(Console::INFO, F("Feature Enabled: JSON Configuration OTA"));
+    #endif
+
+    #ifdef GDB_DEBUG
+    console.log(Console::INFO, F("Feature Enabled: GDB Debugging"));
+    #endif
+
+    #ifdef USE_NTP
+    console.log(Console::INFO, F("Feature Enabled: NTP (Network Time Protocol)"));
+    #endif
+
+    #ifdef TIMER_INTERVAL_MILLIS
+    console.log(Console::INFO, F("Feature Enabled: Timer Interval Execution (ms: %d)"), TIMER_INTERVAL_MILLIS);
+    #endif
+
+    #ifdef CONSOLE_TELNET
+    console.log(Console::INFO, F("Feature Enabled: Telnet Console Output"));
+    #endif
+
+    #ifdef CONSOLE_HTTP
+    console.log(Console::INFO, F("Feature Enabled: HTTP Console Output"));
+    #endif
 }

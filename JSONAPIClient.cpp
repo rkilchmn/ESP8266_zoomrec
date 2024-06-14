@@ -85,7 +85,14 @@ int JSONAPIClient::performRequest(
     DeserializationError error = deserializeJson(responseBody, http.getString());
     if (error)
     {
-      httpCode = HTTP_CODE_DESERIALIZE_RESPONSE_FAILED;
+      // Create a JSON document
+      DynamicJsonDocument doc(500);
+      doc["message"] = "Error in deserializing response";
+      doc["length"] =  http.getSize();
+      doc["response"] =  http.getString();
+
+      // Copy the content of doc to responseBody
+      responseBody.set(doc); 
     }
   }
 
