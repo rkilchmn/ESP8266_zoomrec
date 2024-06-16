@@ -1,0 +1,7 @@
+https://github.com/esp8266/ESPWebServer.git
+https://github.com/plageoj/urlencode.git
+https://github.com/bblanchon/ArduinoJson.git
+https://github.com/tzapu/WiFiManager.git
+https://github.com/highno/rtcvars.git
+https://github.com/rlogiacco/CircularBuffer.git
+https://github.com/JAndrassy/TelnetStream.git
