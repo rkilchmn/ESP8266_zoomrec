@@ -11,7 +11,7 @@
 #define DEEP_SLEEP_STARTUP_SECONDS 40 // do not fall into deep sleep after normal startup, to allow for OTA updates
 // #define TIMER_INTERVAL_MILLIS 20000    // periodically execute code using non-blocking timer instead delay()
 #define JSON_CONFIG_OTA               // upload JSON config via OTA providing REST API
-#define GDB_DEBUG                     // enable debugging using GDB using serial
+// #define GDB_DEBUG                     // enable debugging using GDB using serial
 // use either CONSOLE_TELNET or CONSOLE_HTTP
 // #define CONSOLE_TELNET                // console output can be accessed by telnet server on ESP
 // #define CONSOLE_HTTP               // console output sent to a HTTP server app to view
