@@ -391,10 +391,6 @@ void BaseApp::setup()
   // Print config
   config.print(&console);
 
-#ifdef USE_NTP
-  setupNtp();
-#endif
-
 #ifdef ARDUINO_OTA
   setupArduinoOta();
 #endif
@@ -405,6 +401,10 @@ void BaseApp::setup()
 
 #ifdef HTTP_OTA
   performHttpOtaUpdate();
+#endif
+
+#ifdef USE_NTP
+  setupNtp();
 #endif
 
 #ifdef DEEP_SLEEP_SECONDS
