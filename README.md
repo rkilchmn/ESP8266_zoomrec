@@ -37,6 +37,8 @@ python espota.py -i <ESP_IP_Address> -p 8266 -f /path/to/your-sketch.ino.generic
 
 python espota.py -i ESP8266_zoomrec.local -p 8266 -a your_password_here -f /path/to/your-sketch.ino.generic.bin
 
+python3 /home/roger/.arduino15/packages/esp8266/hardware/esp8266/3.1.2/tools/espota.py -i 192.168.0.27 -p 8081 -a myadminpw -f build/ESP8266_zoomrec.ino.bin
+
 linux tool to list mDNS: avahi-browse -a
 sudo apt-get install avahi-utils
 

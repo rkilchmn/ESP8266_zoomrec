@@ -109,8 +109,8 @@ protected:
 #endif
 
 #ifdef ARDUINO_OTA
-  const int ARDUINO_OTA_PORT = 8081;
-  const char *ARDUINO_OTA_PASSWD = "myuserpw";
+  const int ARDUINO_OTA_PORT = 8266;
+  const char *ARDUINO_OTA_PASSWD = "";
   void setupArduinoOta();
 #endif
 
