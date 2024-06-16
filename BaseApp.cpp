@@ -117,9 +117,11 @@ uint32_t BaseApp::sntp_update_delay_MS_rfc_not_less_than_15000()
 void BaseApp::setupArduinoOta()
 {
   // Arduino OTA Initalisation
-  ArduinoOTA.setPort(ARDUINO_OTA_PORT);
+  int port = config.get("arduino_ota_port", ARDUINO_OTA_PORT);
+  ArduinoOTA.setPort(port);
   ArduinoOTA.setHostname(SSID);
-  ArduinoOTA.setPassword(ARDUINO_OTA_PASSWD);
+  ArduinoOTA.setPassword(config.get("arduino_ota_password", ARDUINO_OTA_PASSWD));
+
   ArduinoOTA.onStart([this]()
                      {
       watchdog.detach();
@@ -136,7 +138,9 @@ void BaseApp::setupArduinoOta()
       else if (error == OTA_CONNECT_ERROR) console.log(Console::ERROR, F("Connect Failed"));
       else if (error == OTA_RECEIVE_ERROR) console.log(Console::ERROR, F("Receive Failed"));
       else if (error == OTA_END_ERROR) console.log(Console::ERROR, F("End Failed")); });
+
   ArduinoOTA.begin();
+  console.log(Console::INFO, F("Started Arduino OTA Server on port: %d"), port);
 }
 #endif
 
@@ -151,6 +155,8 @@ boolean BaseApp::performHttpOtaUpdate()
   console.log(Console::INFO, F("Checking for firmware update via HTTP OTA from %s"), http_ota_url.c_str());
 
   WiFiClient client;
+  client.setTimeout(30000); // 
+
 #ifdef LED_STATUS_FLASH
   ESPhttpUpdate.setLedPin(STATUS_LED, LED_ON); // define level for LED on
 #endif
@@ -389,16 +395,16 @@ void BaseApp::setup()
   setupNtp();
 #endif
 
-#ifdef HTTP_OTA
-  performHttpOtaUpdate();
-#endif
-
 #ifdef ARDUINO_OTA
   setupArduinoOta();
 #endif
 
 #ifdef JSON_CONFIG_OTA
   config.setupOtaServer(&console);
+#endif
+
+#ifdef HTTP_OTA
+  performHttpOtaUpdate();
 #endif
 
 #ifdef DEEP_SLEEP_SECONDS

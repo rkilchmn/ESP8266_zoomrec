@@ -124,7 +124,7 @@ void Config::setupOtaServer(Console *console)
   int port = get("json_config_ota_port", JSON_CONFIG_OTA_PORT);
   server.begin(port);
   if (refConsole != nullptr) {
-    refConsole->log(Console::INFO, F("Starting Config OTA Server on port: %d"), port);
+    refConsole->log(Console::INFO, F("Started Config OTA Server on port: %d"), port);
   }
 }
 

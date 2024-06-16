@@ -10,6 +10,8 @@
     "http_ota_url": "http://192.168.0.239:8080/firmware",
     "http_ota_username": "user",
     "http_ota_password": "myuserpw",
+    "arduino_ota_port": 8081,
+    "arduino_ota_password": "myuserpw",
     "json_config_ota_username": "user",
     "json_config_ota_password": "myuserpw",
     "json_config_ota_port": 8080,

@@ -38,7 +38,11 @@
 #endif
 
 #ifdef HTTP_OTA
-#include <ESP8266HTTPClient.h>
+// // Define the macro for detailed debug output
+// #define DEBUG_ESP_HTTP_UPDATE
+// // Redirect debug output to Serial port
+// #define DEBUG_ESP_PORT Serial
+// #include <ESP8266HTTPClient.h>
 #include <ESP8266httpUpdate.h>
 #endif
 

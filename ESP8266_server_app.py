@@ -62,7 +62,7 @@ def get_firmware():
         return 'Firmware not found', 404
     firmware_file_mtime = get_file_mtime(filepath)
     # difference needs to be min 60s as there are some small time differences
-    if (firmware_file_mtime - firmware_version_mtime).total_seconds() >= 3*60:
+    if (firmware_file_mtime - firmware_version_mtime).total_seconds() >= 1*60:
         return send_file(filepath, as_attachment=True, mimetype='application/octet-stream')
     else:
         return '', 304  # Not Modified
@@ -83,7 +83,9 @@ def log_handler():
     log_filename = f'{LOG_PATH}{log_id}.log'
 
     try:
+        # make filename safe for windows
         log_filename = log_filename.replace(':', '')
+        
         # Check if the log file exists
         if os.path.exists(log_filename):
             mode = 'a'
