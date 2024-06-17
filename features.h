@@ -16,6 +16,7 @@
 // #define CONSOLE_TELNET                // console output can be accessed by telnet server on ESP
 // #define CONSOLE_HTTP               // console output sent to a HTTP server app to view
 #define USE_NTP                       // connect to NTP server to retrieve time
+#define USE_MDNS                      // allow hostnet resolution via mDNS in local networks
 
 // important for reliable deep sleep wake up and reset via UART for flashing
 // use a BAT43 Schottky Diode: RST (Anode +) ---D|--- (Cathode -) D0

@@ -17,6 +17,11 @@
 
 #include "Config.h"
 
+#ifdef USE_MDNS
+#include <ESP8266mDNS.h>
+#endif
+
+
 #ifdef CONSOLE_TELNET
 #include "TelnetStreamBuffered.h"
 #endif
@@ -32,8 +37,6 @@
 #endif
 
 #ifdef ARDUINO_OTA
-#include <ESP8266mDNS.h>
-#include <WiFiUdp.h>
 #include <ArduinoOTA.h>
 #endif
 
@@ -90,6 +93,10 @@ protected:
   void timeoutCallback();
   bool connectWiFi();
   void logEnabledFeatures();
+
+#ifdef USE_MDNS
+  void setupMDNS();
+#endif
 
 #ifdef WIFI_PORTAL
   // const uint8 WIFI_PORTAL_TRIGGER_PIN = 4; // A low input on this pin will trigger the Wifi Manager Console at boot. Comment out to disable.

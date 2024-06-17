@@ -30,6 +30,10 @@ BaseApp::~BaseApp()
 #endif
 }
 
+const char* BaseApp::getMDNSHostname() {
+    return "ESP8266-BaseApp";
+  }
+
 void BaseApp::AppFirmwareVersion()
 {
   FIRMWARE_VERSION = String(__FILE__) + "-" + String(__DATE__) + "-" + String(__TIME__);
@@ -113,15 +117,31 @@ uint32_t BaseApp::sntp_update_delay_MS_rfc_not_less_than_15000()
 }
 #endif
 
+#ifdef USE_MDNS
+void BaseApp::setupMDNS() {
+  // Start the mDNS responder
+  const char* mDNSHostname = getMDNSHostname();
+  mDNSHostname = config.get("mDNSHostname", mDNSHostname);
+  if (MDNS.begin(mDNSHostname)) {  // Initialize mDNS with the hostname
+    console.log(Console::INFO, F("Advertising mDNS with hostname='%s.local'"), mDNSHostname);
+  } else {
+    console.log(Console::ERROR, F("Advertising mDNS with hostname='%s.local' failed"), mDNSHostname);
+  }
+}
+#endif
+
 #ifdef ARDUINO_OTA
 void BaseApp::setupArduinoOta()
 {
   // Arduino OTA Initalisation
   int port = config.get("arduino_ota_port", ARDUINO_OTA_PORT);
   ArduinoOTA.setPort(port);
+#ifdef USE_MDNS // needs to done again even if MSDN.begin ws already calleed
   const char* mDNSHostname = getMDNSHostname();
   mDNSHostname = config.get("mDNSHostname", mDNSHostname);
   ArduinoOTA.setHostname( mDNSHostname);
+#endif
+
   ArduinoOTA.setPassword(config.get("arduino_ota_password", ARDUINO_OTA_PASSWD));
 
   ArduinoOTA.onStart([this]()
@@ -142,7 +162,7 @@ void BaseApp::setupArduinoOta()
       else if (error == OTA_END_ERROR) console.log(Console::ERROR, F("End Failed")); });
 
   ArduinoOTA.begin();
-  console.log(Console::INFO, F("Started Arduino OTA Server on IP=%s mDNSHostname='%s' port: %d"), WiFi.localIP().toString().c_str(), mDNSHostname, port);
+  console.log(Console::INFO, F("Started Arduino OTA Server on port: %d"), port);
 }
 #endif
 
@@ -393,6 +413,10 @@ void BaseApp::setup()
   // Print config
   config.print(&console);
 
+#ifdef USE_MDNS
+  setupMDNS();
+#endif
+
 #ifdef ARDUINO_OTA
   setupArduinoOta();
 #endif
@@ -446,6 +470,11 @@ void BaseApp::AppDeepSleepStateInit()
 
 void BaseApp::loop()
 {
+
+#ifdef USE_MDNS
+  // Handle mDNS requests
+  MDNS.update();  // Keep the mDNS responder active
+#endif
 
 #ifdef JSON_CONFIG_OTA
   // Handle HTTP requests
@@ -506,7 +535,7 @@ void BaseApp::loop()
 
 // Function to log enabled features
 void BaseApp::logEnabledFeatures() {
-    // Check and log each feature
+    // Check and log each 
     #ifdef WIFI_PORTAL
     console.log(Console::INFO, F("Feature Enabled: WiFi Configuration Portal"));
     #endif
@@ -541,6 +570,10 @@ void BaseApp::logEnabledFeatures() {
 
     #ifdef USE_NTP
     console.log(Console::INFO, F("Feature Enabled: NTP (Network Time Protocol)"));
+    #endif
+
+    #ifdef USE_MDNS
+    console.log(Console::INFO, F("Feature Enabled: mDNS (Local Network Hostname Resolution)"));
     #endif
 
     #ifdef TIMER_INTERVAL_MILLIS
