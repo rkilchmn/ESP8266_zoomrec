@@ -84,6 +84,7 @@ protected:
   virtual void AppLoop();      // ovveride this if reqired
   virtual void AppIntervall(); // ovveride this if reqired
   virtual void AppFirmwareVersion(); // implement in the app class
+  virtual const char* getMDNSHostname(); // implement in the app class
 
   String getResetReasonString(uint8_t reason);
   void timeoutCallback();
@@ -157,7 +158,6 @@ protected:
   uint32_t sntp_update_delay_MS_rfc_not_less_than_15000();
 #endif
 
-  // Add your class members and methods here based on the provided code.
 };
 
 

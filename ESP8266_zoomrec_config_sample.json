@@ -2,6 +2,7 @@
     "serial_baud" : 74880,
     "log_level" : 10, 
     "deep_sleep_option" : 2,
+    "mDNShostname": "ESP8266-zoomrec",
     "http_api_username": "user",
     "http_api_password": "myuserpw",
     "http_api_base_url": "http://192.168.0.239:8080",

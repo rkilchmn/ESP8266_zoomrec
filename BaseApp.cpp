@@ -119,7 +119,9 @@ void BaseApp::setupArduinoOta()
   // Arduino OTA Initalisation
   int port = config.get("arduino_ota_port", ARDUINO_OTA_PORT);
   ArduinoOTA.setPort(port);
-  ArduinoOTA.setHostname(SSID);
+  const char* mDNSHostname = getMDNSHostname();
+  mDNSHostname = config.get("mDNSHostname", mDNSHostname);
+  ArduinoOTA.setHostname( mDNSHostname);
   ArduinoOTA.setPassword(config.get("arduino_ota_password", ARDUINO_OTA_PASSWD));
 
   ArduinoOTA.onStart([this]()
@@ -140,7 +142,7 @@ void BaseApp::setupArduinoOta()
       else if (error == OTA_END_ERROR) console.log(Console::ERROR, F("End Failed")); });
 
   ArduinoOTA.begin();
-  console.log(Console::INFO, F("Started Arduino OTA Server on port: %d"), port);
+  console.log(Console::INFO, F("Started Arduino OTA Server on IP=%s mDNSHostname='%s' port: %d"), WiFi.localIP().toString().c_str(), mDNSHostname, port);
 }
 #endif
 

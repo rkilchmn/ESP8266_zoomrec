@@ -31,6 +31,10 @@ private:
     FIRMWARE_VERSION = String(__FILE__) + "-" + String(__DATE__) + "-" + String(__TIME__);
   }
 
+  const char* getMDNSHostname() {
+    return "ESP8266-Zoomrec";
+  }
+
   void AppDeepSleepStateInit()
   {
     changedPowerState = false;
