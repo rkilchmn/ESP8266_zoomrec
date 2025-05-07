@@ -127,7 +127,7 @@ private:
       snprintf(path, sizeof(path), "/event/next?client_id=%s&lead_time_sec=%d&trail_time_sec=%d",
         urlEncode(config.get("client_id", "")).c_str(), config.get("leadin_secs", 60), config.get("leadout_secs", 60));
 
-      DynamicJsonDocument responseBody(2048);  // Use a larger value
+      DynamicJsonDocument responseBody(2048); 
       StaticJsonDocument<0> emptyRequestHeader;
       StaticJsonDocument<0> emptyRequestBody;
 
@@ -159,15 +159,10 @@ private:
         }
         else
         {
-
           // Convert ISO 8601 timestamps to time_t (Unix timestamp)
           time_t startTime = convertISO8601ToUnixTime(startStr);
           time_t endTime = convertISO8601ToUnixTime(endStr);
           time_t currentTime = convertISO8601ToUnixTime(nowStr);
-
-          console.log(Console::DEBUG, F("startStr: %s startTime: %ld"), startStr, startTime);
-          console.log(Console::DEBUG, F("endStr: %s endTime: %ld"), endStr, endTime);
-          console.log(Console::DEBUG, F("nowStr: %s currentTime: %ld"), nowStr, currentTime);
 
           // Check if the event has started and has not yet ended
           if ((currentTime >= startTime) && (currentTime <= endTime))

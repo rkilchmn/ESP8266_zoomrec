@@ -13,7 +13,7 @@ int JSONAPIClient::performRequest(
 {
   WiFiClient client;
 
-  bool debug = true;
+  bool debug = false;
 
   if (strncmp(url, "https", 5) == 0)
   {
@@ -82,8 +82,9 @@ int JSONAPIClient::performRequest(
 
   // Read the responseBody JSON data into a DynamicJsonDocument
   if (http.getSize() > 0) {
-    (debug) ? Serial.printf("JSONAPIClient::performRequest responseSize=%d response=%s\n", http.getSize(), http.getString().c_str()) : 0;
     DeserializationError error = deserializeJson(responseBody, http.getString());
+    (debug) ? Serial.printf("JSONAPIClient::performRequest responseSize=%d responseBody.memoryUsage=%d response=%s\n", http.getSize(), responseBody.memoryUsage(), http.getString().c_str()) : 0;
+
     if (error)
     {
       // Create a JSON document
@@ -91,7 +92,6 @@ int JSONAPIClient::performRequest(
       doc["message"] = "Error in deserializing response";
       doc["error"] =  error.c_str();
       doc["length"] =  http.getSize();
-      doc["response"] =  http.getString().c_str();
 
       // Copy the content of doc to responseBody
       responseBody.set(doc); 
