@@ -13,7 +13,7 @@ int JSONAPIClient::performRequest(
 {
   WiFiClient client;
 
-  bool debug = false;
+  bool debug = true;
 
   if (strncmp(url, "https", 5) == 0)
   {
@@ -35,7 +35,7 @@ int JSONAPIClient::performRequest(
     return HTTP_CODE_HTTP_BEGIN_FAILED;
   }
 
-  (debug) ? Serial.printf("uri=%s", uri.c_str()) : 0;
+  (debug) ? Serial.printf("JSONAPIClient::performRequest uri=%s\n", uri.c_str()) : 0;
 
   // Set the HTTP request headers with the basic authentication credentials
   String auth = String(http_username) + ":" + String(http_password);
@@ -64,7 +64,7 @@ int JSONAPIClient::performRequest(
       http.addHeader("Content-Type", "application/json");
       http.addHeader("Content-Length", String(requestBodyStr.length()));
 
-      (debug) ? Serial.printf("requestBodySize=%d request=%s\n", requestBodySize, requestBodyStr.c_str()) : 0;
+      (debug) ? Serial.printf("JSONAPIClient::performRequest requestBodySize=%d request=%s\n", requestBodySize, requestBodyStr.c_str()) : 0;
       
       // Send the HTTP POST request with the JSON request body
       httpCode = http.POST(requestBodyStr);
@@ -82,18 +82,24 @@ int JSONAPIClient::performRequest(
 
   // Read the responseBody JSON data into a DynamicJsonDocument
   if (http.getSize() > 0) {
+    (debug) ? Serial.printf("JSONAPIClient::performRequest responseSize=%d response=%s\n", http.getSize(), http.getString().c_str()) : 0;
     DeserializationError error = deserializeJson(responseBody, http.getString());
     if (error)
     {
       // Create a JSON document
       DynamicJsonDocument doc(500);
       doc["message"] = "Error in deserializing response";
+      doc["error"] =  error.c_str();
       doc["length"] =  http.getSize();
-      doc["response"] =  http.getString();
+      doc["response"] =  http.getString().c_str();
 
       // Copy the content of doc to responseBody
       responseBody.set(doc); 
     }
+  }
+  else {
+    (debug) ? Serial.printf("JSONAPIClient::performRequest responseSize=0\n") : 0;
+    responseBody.clear();
   }
 
   // Release the resources used by the HTTP client
