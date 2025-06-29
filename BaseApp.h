@@ -98,6 +98,8 @@ protected:
   bool connectWiFi();
   void logEnabledFeatures();
 
+  void DeepSleepNK(uint32 t_us); // alternate deep sleep method for zoombie boot issue (see implementation for details)
+
 #ifdef USE_MDNS
   void setupMDNS();
 #endif

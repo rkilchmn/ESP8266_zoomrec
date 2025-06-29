@@ -5,6 +5,7 @@
 #include <Arduino.h>
 #include "iso_date.h"
 #include <stdarg.h>
+#include <c_types.h>
 
 #ifdef HTTP_OTA
 #include <ESP8266HTTPClient.h>
@@ -59,7 +60,8 @@ void BaseApp::timeoutCallback()
 #ifdef DEEP_SLEEP_SECONDS
   // Enter DeepSleep so that we don't exhaust our batteries by countinuously trying to
   // connect to a network that isn't there.
-  ESP.deepSleep(DEEP_SLEEP_SECONDS * 1000, WAKE_RF_DEFAULT);
+  // ESP.deepSleep(DEEP_SLEEP_SECONDS * 1000, WAKE_RF_DEFAULT);
+  DeepSleepNK(DEEP_SLEEP_SECONDS * 1000);
   // Do nothing while we wait for sleep to overcome us
   while (true)
   {
@@ -612,7 +614,9 @@ void BaseApp::loop()
       deepSleepState.saveToRTC();
       console.log(Console::DEBUG, F("Entering deep sleep for %d seconds..."), DEEP_SLEEP_SECONDS);
       console.flush();
-      ESP.deepSleep(DEEP_SLEEP_SECONDS * 1000000, WAKE_RF_DEFAULT);
+      digitalWrite(STATUS_LED, HIGH);
+      // ESP.deepSleep(DEEP_SLEEP_SECONDS * 1000000, WAKE_RF_DEFAULT);
+      DeepSleepNK(DEEP_SLEEP_SECONDS * 1000);
       // Do nothing while we wait for sleep to overcome us
       while (true)
       {
@@ -680,4 +684,32 @@ void BaseApp::logEnabledFeatures() {
     #ifdef CONSOLE_HTTP
     console.log(Console::INFO, F("Feature Enabled: HTTP Console Output"));
     #endif
+}
+
+uint32_t*RT= (uint32_t *)0x60000700;
+
+// alternate Deep sleep function to overcome "zombie" boot stopping after "ets Jan 8 2013,rst cause:2, boot mode:(3,6)"
+// see https://github.com/esp8266/Arduino/issues/6318
+// see https://github.com/esp8266/Arduino/issues/6007 
+// checkout this https://github.com/NickHrach/LongDeepSleep
+void BaseApp::DeepSleepNK(uint32 t_us)
+{
+  RT[4] = 0;
+  *RT = 0;
+  RT[1]=100;
+  RT[3] = 0x10010;
+  RT[6] = 8;
+  RT[17] = 4;
+  RT[2] = 1<<20;
+  ets_delay_us(10);
+  RT[1]=t_us>>3;
+  RT[3] = 0x640C8;
+  RT[4]= 0;
+  RT[6] = 0x18;
+  RT[16] = 0x7F;
+  RT[17] = 0x20;
+  RT[39] = 0x11;
+  RT[40] = 0x03;
+  RT[2] |= 1<<20;
+  __asm volatile ("waiti 0");
 }
