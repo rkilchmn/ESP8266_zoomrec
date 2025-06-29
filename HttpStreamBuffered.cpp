@@ -92,9 +92,9 @@ void HttpStreamBuffered::flushBufferedData()
     flushDataSize = charArrayIndex;
 
     if (!callHttpApi(flushdata, flushDataSize)) { // on error
-      // push back to buffer (excluding the '\0')
+      // insert back to buffer (excluding the '\0')
       for ( int i = 0; i < flushDataSize; i++) {
-        buffer.push(flushdata[i]);
+        buffer.unshift(flushdata[i]);
       }
   }
     else {

@@ -1,18 +1,18 @@
 #include "Config.h"
 // library
-#include <FS.h>
+#include <LittleFS.h>
 // project
 #include "Console.h"
 
 Config::Config() : doc(0), server(JSON_CONFIG_OTA_PORT)
 {
-  if (SPIFFS.begin())
+  if (LittleFS.begin())
     retrieveJSON();
 }
 
 bool Config::retrieveJSON()
 {
-  File file = SPIFFS.open(JSON_CONFIG_OTA_FILE, "r");
+  File file = LittleFS.open(JSON_CONFIG_OTA_FILE, "r");
   if (!file)
   {
     return false;
@@ -24,6 +24,24 @@ bool Config::retrieveJSON()
   file.close();
 
   return !error;
+}
+
+time_t Config::getConfigTimestamp()
+{
+  if (!LittleFS.exists(JSON_CONFIG_OTA_FILE)) {
+    return 0;  // Return 0 if file doesn't exist
+  }
+  
+  File file = LittleFS.open(JSON_CONFIG_OTA_FILE, "r");
+  if (!file) {
+    return 0;  // Return 0 if file can't be opened
+  }
+  
+  time_t lastModified = file.getLastWrite();
+  size_t fileSize = file.size();
+  file.close();
+  
+  return lastModified;
 }
 
 int Config::exists(const char *configKey)
@@ -69,31 +87,16 @@ void Config::handleOTAServerRequest()
       if (error) {
         server.send(400, "text/plain", error.c_str());
       }
-      else {
-        configDoc.shrinkToFit();
-
-        // Store JSON payload in SPIFFS
-        File configFile = SPIFFS.open(JSON_CONFIG_OTA_FILE, "w");
-        if (configFile)
-        {
-          int size = serializeJson(configDoc, configFile);
-          if (size > 0) {
-            configFile.close();
-            // re-read from filesystem & output
-            retrieveJSON(); // refresh config
-            if (refConsole != nullptr) {
-              refConsole->log(Console::INFO, F("OTA Config update received from IP: %s"), server.client().remoteIP().toString().c_str());
-              print( refConsole);
-            }
-            server.send(200);
+      else {        
+        if (saveConfig(configDoc)) {
+          // Log the incoming request
+          if (refConsole != nullptr) {
+            refConsole->log(Console::INFO, F("OTA Config update received from IP: %s"), server.client().remoteIP().toString().c_str());
           }
-          else {
-            server.send(400, "text/plain", "Config file size 0");
-          }
-        }
-        else
-        {
-          server.send(400, "text/plain", "Failed to open config file for writing");
+          
+          server.send(200);
+        } else {
+          server.send(400, "text/plain", "Failed to save configuration");
         }
       }
     }
@@ -130,6 +133,32 @@ void Config::setupOtaServer(Console *console)
 
 void Config::handleOTAServerClient() {
   server.handleClient();
+}
+
+bool Config::saveConfig(DynamicJsonDocument& configDoc)
+{
+  configDoc.shrinkToFit();
+
+  // Store JSON payload in LittleFS
+  File configFile = LittleFS.open(JSON_CONFIG_OTA_FILE, "w");
+  if (!configFile)
+  {
+    return false;
+  }
+
+  int size = serializeJson(configDoc, configFile);
+  configFile.close();
+  
+  if (size <= 0) {
+    return false;
+  }
+
+  // Re-read from filesystem
+  if (!retrieveJSON()) {
+    return false;
+  }
+
+  return true;
 }
 
 void Config::print(Console* console)

@@ -3,7 +3,12 @@
 
 #include "features.h"
 #include <Arduino.h>
+#include "iso_date.h"
 #include <stdarg.h>
+
+#ifdef HTTP_OTA
+#include <ESP8266HTTPClient.h>
+#endif
 
 #ifdef GDB_DEBUG
 #include <GDBStub.h>
@@ -101,8 +106,13 @@ void BaseApp::time_is_set(boolean from_sntp /* <= this optional parameter can be
 
   time_t now = time(nullptr);
   // causes dumps with HTTP CONSOLE???
-  // console.log(Console::INFO, F("NTP time received from_sntp=%s"), from_sntp ? "true" : "false");
-  // console.log(Console::INFO, F("Current local time: %s"), ctime(&now));
+  console.log(Console::INFO, F("NTP time received from_sntp=%s"), from_sntp ? "true" : "false");
+  console.log(Console::INFO, F("Current local time: %s"), ctime(&now));
+
+  // we do this once here once time is set, because otherwise config timestamp will be 1970-01-01
+#ifdef HTTP_CONFIG
+  performHttpConfigUpdate();
+#endif  
 }
 
 uint32_t BaseApp::sntp_startup_delay_MS_rfc_not_less_than_60000()
@@ -165,6 +175,78 @@ void BaseApp::setupArduinoOta()
   console.log(Console::INFO, F("Started Arduino OTA Server on port: %d"), port);
 }
 #endif
+
+#ifdef HTTP_CONFIG
+boolean BaseApp::performHttpConfigUpdate()
+{
+  String http_config_url = config.get("http_config_url", HTTP_CONFIG_URL);
+  if (http_config_url.isEmpty()) {
+    console.log(Console::WARNING, F("No HTTP config URL configured"));
+    return false;
+  }
+  
+  String http_config_username = config.get("http_config_username", HTTP_CONFIG_USERNAME);
+  String http_config_password = config.get("http_config_password", HTTP_CONFIG_PASSWORD);
+
+  console.log(Console::INFO, F("Downloading config from %s"), http_config_url.c_str());
+
+  // Allocate JSON documents for request and response
+  DynamicJsonDocument requestHeader(256);  // Headers with version info and last_updated
+  DynamicJsonDocument requestBody(0);      // Empty body for GET request
+  DynamicJsonDocument responseDoc(Config::JSON_CONFIG_MAXSIZE);
+  
+  // Add version header
+  requestHeader["x-ESP8266-version"] = FIRMWARE_VERSION;
+  
+  // Get the last updated timestamp from the config file
+  time_t last_updated = config.getConfigTimestamp();
+  if (last_updated > 0) {
+    // Format the timestamp in HTTP date format (RFC 7232)
+    struct tm *tm_info = gmtime(&last_updated);
+    char httpDate[32];
+    strftime(httpDate, sizeof(httpDate), "%a, %d %b %Y %H:%M:%S GMT", tm_info);
+    
+    // Add If-Modified-Since header
+    requestHeader["If-Modified-Since"] = httpDate;
+  }
+
+  int httpCode = JSONAPIClient::performRequest(
+    JSONAPIClient::HTTP_METHOD_GET,
+    http_config_url.c_str(),
+    NULL,
+    requestHeader,
+    requestBody,
+    responseDoc,
+    http_config_username.c_str(),
+    http_config_password.c_str(),
+    ""  // No TLS fingerprint
+  );
+
+  switch (httpCode) {
+    case HTTP_CODE_OK:
+      // Save the configuration
+      if (config.saveConfig(responseDoc)) {
+        console.log(Console::INFO, F("Successfully updated config from %s"), http_config_url.c_str());
+        return true;
+      } else {
+        console.log(Console::ERROR, F("Failed to save config"));
+        return false;
+      }
+      break;
+    case HTTP_CODE_NOT_MODIFIED:
+      console.log(Console::INFO, F("No Config Update available"));
+      return true;
+      break;
+    default:
+      console.log(Console::ERROR, F("HTTP request %s failed with code: %d"), http_config_url.c_str(), httpCode);
+      if (responseDoc.containsKey("message")) {
+        console.log(Console::ERROR, F("Error: %s"), responseDoc["message"].as<String>().c_str());
+      }
+      return false;
+      break;
+  }
+}
+#endif // HTTP_CONFIG
 
 #ifdef HTTP_OTA
 boolean BaseApp::performHttpOtaUpdate()
@@ -357,19 +439,26 @@ int lastStatus = LOW;
 
 void BaseApp::setup()
 {
-#ifdef GDB_DEBUG
-  gdbstub_init();
-#endif
-
   // try to initialize with baud rate from config
   int serial_baud = config.get("serial_baud", SERIAL_DEFAULT_BAUD);
   console.begin(serial_baud);
 
-  // determine logLevel
-  int logLevel = config.get("log_level", Console::DEBUG);
-  console.setLogLevel(console.intToLogLevel(logLevel));
+   // determine logLevel
+   int logLevel = config.get("log_level", Console::DEBUG);
+   console.setLogLevel(console.intToLogLevel(logLevel));
 
   console.println(); // newline after garbage from startup
+
+#ifdef GDB_DEBUG
+  console.log(Console::INFO, F("GDB Debug enabled"));
+  gdbstub_init();
+#endif
+
+  // identify faulty falsh chips tha prevent booting after deep sleep
+  // https://github.com/esp8266/Arduino/issues/6007#issuecomment-2080368936
+  // The XTX chips will return 0B in the last byte, like this: 16400B
+  console.println(ESP.getFlashChipId(),HEX);
+
   AppFirmwareVersion();
   console.log(Console::INFO, F("Current firmware version: '%s'"), (FIRMWARE_VERSION).c_str());
   logEnabledFeatures();
@@ -402,7 +491,7 @@ void BaseApp::setup()
   else
   {
     pBufferedHTTPRestStream = new HttpStreamBuffered(
-        config.get("http_log_id", FIRMWARE_VERSION.c_str()), http_log_url, "/log",
+        config.get("http_log_id", FIRMWARE_VERSION.c_str()), http_log_url, "",
         config.get("http_log_username"), config.get("http_log_password"));
     console.log(Console::INFO, F("Starting HTTP logging to %s."), http_log_url);
     console.begin(*pBufferedHTTPRestStream, Serial);
@@ -550,6 +639,10 @@ void BaseApp::logEnabledFeatures() {
 
     #ifdef HTTP_OTA
     console.log(Console::INFO, F("Feature Enabled: HTTP OTA Updates"));
+    #endif
+
+    #ifdef HTTP_CONFIG
+    console.log(Console::INFO, F("Feature Enabled: HTTP Config Updates"));
     #endif
 
     #ifdef LED_STATUS_FLASH

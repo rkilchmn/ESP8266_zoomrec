@@ -42,6 +42,16 @@ int JSONAPIClient::performRequest(
   String encodedAuth = base64::encode(auth);
   http.setAuthorization(encodedAuth);
 
+  // Add custom headers from requestHeader JSON document
+  for (JsonPair kv : requestHeader.as<JsonObject>()) {
+    const char* headerName = kv.key().c_str();
+    const char* headerValue = kv.value().as<const char*>();
+    if (headerName && headerValue) {
+      http.addHeader(headerName, headerValue);
+      (debug) ? Serial.printf("JSONAPIClient::performRequest Added header: %s: %s\n", headerName, headerValue) : 0;
+    }
+  }
+
   // Send the HTTP request to the API endpoint
   int httpCode;
   String requestBodyStr;

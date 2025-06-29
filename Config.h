@@ -18,9 +18,11 @@ public:
     // for config http server
     void setupOtaServer(Console* console);
     void handleOTAServerClient();
+    bool saveConfig(DynamicJsonDocument& configDoc);
+    time_t getConfigTimestamp();
+    static const size_t JSON_CONFIG_MAXSIZE = 4096;
 
 protected:
-    static const size_t JSON_CONFIG_MAXSIZE = 4096;
     const char *JSON_CONFIG_OTA_FILE = "/config.json";
     const char *JSON_CONFIG_USERNAME = "user";
     const char *JSON_CONFIG_PASSWD = "myuserpw";
@@ -33,6 +35,7 @@ protected:
 
     void handleOTAServerRequest();
     bool retrieveJSON();
+
 };
 
 #endif // CONFIG_H

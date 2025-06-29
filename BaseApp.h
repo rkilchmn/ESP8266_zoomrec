@@ -30,6 +30,10 @@
 #include "HttpStreamBuffered.h"
 #endif
 
+#ifdef HTTP_CONFIG
+#include "JSONAPIClient.h"
+#endif
+
 #ifdef WIFI_PORTAL
 #include <DNSServer.h>
 #include <ESP8266WebServer.h>
@@ -129,6 +133,13 @@ protected:
   void setupHTTPOTA();
   boolean performHttpOtaUpdate();
 #endif
+
+#ifdef HTTP_CONFIG
+  const char *HTTP_CONFIG_URL = "http://192.168.0.1:8080/config";
+  const char *HTTP_CONFIG_USERNAME = "user";
+  const char *HTTP_CONFIG_PASSWORD = "myuserpw";
+  boolean performHttpConfigUpdate();
+#endif // HTTP_CONFIG
 
   const int SERIAL_DEFAULT_BAUD = 74880;     // native baud rate to see boot message
   const int FAST_CONNECTION_TIMEOUT = 10000; // timeout for initial connection atempt

@@ -15,18 +15,17 @@
             ]
         },
         {
-            "name": "Debug Linux ",
+            "name": "Debug Windows ",
             "type": "cppdbg",
             "request": "launch",
             "program": "${workspaceFolder}/build/${workspaceFolderBasename}.ino.elf",
             "args": [],
-            "stopAtEntry": false,
+            "stopAtEntry": true,
             "cwd": "${workspaceFolder}",
             "environment": [],
-            "externalConsole": true,
+            "externalConsole": false,
             "MIMode": "gdb",
-            "miDebuggerPath": "${userHome}/.arduino15/packages/esp8266/tools/xtensa-lx106-elf-gcc/3.1.0-gcc10.3-e5f9fec/bin/xtensa-lx106-elf-gdb",
-            "miDebuggerServerAddress": "/dev/ttyUSB0",
+            "miDebuggerPath": "${userHome}/AppData/Local/Arduino15/packages/esp8266/tools/xtensa-lx106-elf-gcc/3.1.0-gcc10.3-e5f9fec/bin/xtensa-lx106-elf-gdb.exe",
             "setupCommands": [
                 {
                     "text": "set remote hardware-breakpoint-limit 1"
@@ -65,7 +64,11 @@
                     "text": "mem 0x60000000 0x60001fff rw"
                 },
                 {
-                    "text": "set serial baud 115200"
+                    "description": "Connect GDB over COM4 serial",
+                    "text": "target remote \\\\.\\COM4"
+                },
+                {
+                    "text": "set serial baud 74880"
                 }
             ]
         }
