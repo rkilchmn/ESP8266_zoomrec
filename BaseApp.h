@@ -74,11 +74,14 @@ class BaseApp
 public:
   BaseApp();
   ~BaseApp();
-
   void setup();
   void loop();
+  void deepSleep(uint32_t time_us, RFMode mode = RF_DEFAULT);
 
 protected:
+  static const uint32_t PROBLEMATIC_FLASH_CHIPS[];  // List of known problematic flash chip IDs
+  static const size_t NUM_PROBLEMATIC_FLASH_CHIPS;  // Number of entries in the array
+  bool _deepSleepWorkaround = false;  // Flag to track if deep sleep workaround is needed
   String FIRMWARE_VERSION = String(__FILE__) + "-" + String(__DATE__) + "-" + String(__TIME__);
   const uint8 WATCHDOG_SETUP_SECONDS = 60; // Setup should complete well within this time limit
   const uint8 WATCHDOG_LOOP_SECONDS = 40;  // Loop should complete well within this time limit
@@ -98,7 +101,7 @@ protected:
   bool connectWiFi();
   void logEnabledFeatures();
 
-  void DeepSleepNK(uint32 t_us); // alternate deep sleep method for zoombie boot issue (see implementation for details)
+  void deepSleepNK(uint32 t_us); // alternate deep sleep method for zoombie boot issue (see implementation for details)
 
 #ifdef USE_MDNS
   void setupMDNS();

@@ -18,9 +18,10 @@ protected:
   char *path; 
   char *username;
   char *password;
+  bool debug;
 
 public:
-  HttpStreamBuffered(const char *logId, const char *url, const char *path, const char *http_username, const char *http_password);
+  HttpStreamBuffered(const char *logId, const char *url, const char *path, const char *http_username, const char *http_password, bool debug = false);
   ~HttpStreamBuffered();
 
   size_t write(uint8_t val);

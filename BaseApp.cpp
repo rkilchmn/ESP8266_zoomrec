@@ -15,8 +15,48 @@
 #include <GDBStub.h>
 #endif
 
+// Define the static members
+const uint32_t BaseApp::PROBLEMATIC_FLASH_CHIPS[] = {
+  0x16400B,  // XTX chips that have issues with deep sleep
+  0x184068   // Known Wemos D1 mini pro clone
+  // Add more problematic IDs as needed
+};
+
+const size_t BaseApp::NUM_PROBLEMATIC_FLASH_CHIPS = 
+  sizeof(BaseApp::PROBLEMATIC_FLASH_CHIPS) / sizeof(BaseApp::PROBLEMATIC_FLASH_CHIPS[0]);
+
 BaseApp::BaseApp()
 {
+  // Identify faulty flash chips that prevent booting after deep sleep
+  // https://github.com/esp8266/Arduino/issues/6007#issuecomment-2080368936
+  // The XTX chips will return 0B in the last byte, like this: 16400B
+  
+  // Get the flash chip ID and check if it's problematic
+  // Format 0xCCTTMM
+  // CC = Capacity Code
+  //   14	1 MB (8 Mbit)
+  //   15	2 MB (16 Mbit)
+  //   16	4 MB (32 Mbit)
+  //   17	8 MB (64 Mbit)
+  //   18	16 MB (128 Mbit)
+  // TT = Memory Type - Typically 0x40, which is common across most standard SPI flash chips
+  // MM = Manufacturer ID
+  //   EF	Winbond (most common)
+  //   C8	GigaDevice
+  //   1C	EON/PUYA  
+  //   20	Micron
+  //   A1	Macronix
+  //   0B	XTX (Chinese)
+  uint32_t flashId = ESP.getFlashChipId();
+
+
+  // Check if the flash ID is in our list of problematic chips
+  for (size_t i = 0; i < NUM_PROBLEMATIC_FLASH_CHIPS; i++) {
+    if ((flashId & 0xFFFFFF) == (PROBLEMATIC_FLASH_CHIPS[i] & 0xFFFFFF)) {
+      _deepSleepWorkaround = true;
+      break;
+    }
+  }
 }
 
 BaseApp::~BaseApp()
@@ -60,8 +100,7 @@ void BaseApp::timeoutCallback()
 #ifdef DEEP_SLEEP_SECONDS
   // Enter DeepSleep so that we don't exhaust our batteries by countinuously trying to
   // connect to a network that isn't there.
-  // ESP.deepSleep(DEEP_SLEEP_SECONDS * 1000, WAKE_RF_DEFAULT);
-  DeepSleepNK(DEEP_SLEEP_SECONDS * 1000);
+  deepSleep(DEEP_SLEEP_SECONDS * 1000000, WAKE_RF_DEFAULT);
   // Do nothing while we wait for sleep to overcome us
   while (true)
   {
@@ -108,8 +147,8 @@ void BaseApp::time_is_set(boolean from_sntp /* <= this optional parameter can be
 
   time_t now = time(nullptr);
   // causes dumps with HTTP CONSOLE???
-  console.log(Console::INFO, F("NTP time received from_sntp=%s"), from_sntp ? "true" : "false");
-  console.log(Console::INFO, F("Current local time: %s"), ctime(&now));
+  // console.log(Console::INFO, F("NTP time received from_sntp=%s"), from_sntp ? "true" : "false");
+  // console.log(Console::INFO, F("Current local time: %s"), ctime(&now));
 
   // we do this once here once time is set, because otherwise config timestamp will be 1970-01-01
 #ifdef HTTP_CONFIG
@@ -199,18 +238,7 @@ boolean BaseApp::performHttpConfigUpdate()
   
   // Add version header
   requestHeader["x-ESP8266-version"] = FIRMWARE_VERSION;
-  
-  // Get the last updated timestamp from the config file
-  time_t last_updated = config.getConfigTimestamp();
-  if (last_updated > 0) {
-    // Format the timestamp in HTTP date format (RFC 7232)
-    struct tm *tm_info = gmtime(&last_updated);
-    char httpDate[32];
-    strftime(httpDate, sizeof(httpDate), "%a, %d %b %Y %H:%M:%S GMT", tm_info);
-    
-    // Add If-Modified-Since header
-    requestHeader["If-Modified-Since"] = httpDate;
-  }
+  requestHeader["x-ESP8266-config-version"] = config.get("version", "");
 
   int httpCode = JSONAPIClient::performRequest(
     JSONAPIClient::HTTP_METHOD_GET,
@@ -236,6 +264,7 @@ boolean BaseApp::performHttpConfigUpdate()
       }
       break;
     case HTTP_CODE_NOT_MODIFIED:
+    case HTTP_CODE_NO_CONTENT:
       console.log(Console::INFO, F("No Config Update available"));
       return true;
       break;
@@ -456,14 +485,16 @@ void BaseApp::setup()
   gdbstub_init();
 #endif
 
-  // identify faulty falsh chips tha prevent booting after deep sleep
-  // https://github.com/esp8266/Arduino/issues/6007#issuecomment-2080368936
-  // The XTX chips will return 0B in the last byte, like this: 16400B
-  console.println(ESP.getFlashChipId(),HEX);
 
   AppFirmwareVersion();
   console.log(Console::INFO, F("Current firmware version: '%s'"), (FIRMWARE_VERSION).c_str());
   logEnabledFeatures();
+  
+  // Log flash ID and workaround status
+  uint32_t flashId = ESP.getFlashChipId();
+  console.log(Console::INFO, F("Flash ID: 0x%06X, Deep Sleep Workaround: %s"), 
+             (flashId & 0xFFFFFF), 
+             _deepSleepWorkaround ? "Enabled" : "Disabled");
 
   console.log(Console::DEBUG, F("Start of initialization: Reset Reason='%s'"), getResetReasonString(ESP.getResetInfoPtr()->reason).c_str());
 
@@ -615,8 +646,7 @@ void BaseApp::loop()
       console.log(Console::DEBUG, F("Entering deep sleep for %d seconds..."), DEEP_SLEEP_SECONDS);
       console.flush();
       digitalWrite(STATUS_LED, HIGH);
-      // ESP.deepSleep(DEEP_SLEEP_SECONDS * 1000000, WAKE_RF_DEFAULT);
-      DeepSleepNK(DEEP_SLEEP_SECONDS * 1000);
+      deepSleep(DEEP_SLEEP_SECONDS * 1000000);
       // Do nothing while we wait for sleep to overcome us
       while (true)
       {
@@ -688,11 +718,11 @@ void BaseApp::logEnabledFeatures() {
 
 uint32_t*RT= (uint32_t *)0x60000700;
 
-// alternate Deep sleep function to overcome "zombie" boot stopping after "ets Jan 8 2013,rst cause:2, boot mode:(3,6)"
+// alternate deep sleep function to overcome "zombie" boot stopping after "ets Jan 8 2013,rst cause:2, boot mode:(3,6)"
 // see https://github.com/esp8266/Arduino/issues/6318
 // see https://github.com/esp8266/Arduino/issues/6007 
 // checkout this https://github.com/NickHrach/LongDeepSleep
-void BaseApp::DeepSleepNK(uint32 t_us)
+void BaseApp::deepSleepNK(uint32 t_us)
 {
   RT[4] = 0;
   *RT = 0;
@@ -712,4 +742,32 @@ void BaseApp::DeepSleepNK(uint32 t_us)
   RT[40] = 0x03;
   RT[2] |= 1<<20;
   __asm volatile ("waiti 0");
+}
+
+void BaseApp::deepSleep(uint32_t time_us, RFMode mode) {
+    if (_deepSleepWorkaround) {
+        // For the workaround, we need to set the deep sleep option manually
+        system_deep_sleep_set_option(mode);
+        // Use the workaround method for problematic flash chips
+        console.log(Console::INFO, F("Using deep sleep workaround for this flash chip"));
+        console.log(Console::DEBUG, F("Deep sleep for %u us with RF mode %d"), time_us, mode);
+        deepSleepNK(time_us);
+    } else {
+        // Use standard deep sleep for known good chips
+        console.log(Console::INFO, F("Using standard deep sleep"));
+        ESP.deepSleep(time_us, mode);
+    }
+    
+    // // If we get here, sleep didn't work - try the other method as a fallback
+    // console.log(Console::WARNING, F("Primary deep sleep method failed, trying fallback"));
+    // if (_deepSleepWorkaround) {
+    //     ESP.deepSleep(time_us, mode);
+    // } else {
+    //     deepSleepNK(time_us);
+    // }
+    
+    // // If we still haven't gone to sleep, try one last desperate attempt
+    // console.log(Console::ERROR, F("Deep sleep failed, forcing sleep"));
+    // delay(100);
+    // ESP.deepSleep(0, mode);
 }
