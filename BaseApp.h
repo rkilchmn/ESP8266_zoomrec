@@ -76,12 +76,10 @@ public:
   ~BaseApp();
   void setup();
   void loop();
-  void deepSleep(uint32_t time_us, RFMode mode = RF_DEFAULT);
-
+  
 protected:
   static const uint32_t PROBLEMATIC_FLASH_CHIPS[];  // List of known problematic flash chip IDs
   static const size_t NUM_PROBLEMATIC_FLASH_CHIPS;  // Number of entries in the array
-  bool _deepSleepWorkaround = false;  // Flag to track if deep sleep workaround is needed
   String FIRMWARE_VERSION = String(__FILE__) + "-" + String(__DATE__) + "-" + String(__TIME__);
   const uint8 WATCHDOG_SETUP_SECONDS = 60; // Setup should complete well within this time limit
   const uint8 WATCHDOG_LOOP_SECONDS = 40;  // Loop should complete well within this time limit
@@ -89,6 +87,7 @@ protected:
 
   Console console;
   Config config;
+
 
   virtual void AppSetup();     // ovveride this if reqired
   virtual void AppLoop();      // ovveride this if reqired
@@ -101,8 +100,8 @@ protected:
   bool connectWiFi();
   void logEnabledFeatures();
 
-  void deepSleepNK(uint32 t_us); // alternate deep sleep method for zoombie boot issue (see implementation for details)
-
+  void deepSleep(uint32_t time_us, RFMode mode = RF_DEFAULT);
+  
 #ifdef USE_MDNS
   void setupMDNS();
 #endif
@@ -175,14 +174,19 @@ protected:
   const char *NTP_SERVER = "pool.ntp.org";
   // Timezone definition https://github.com/nayarsystems/posix_tz_db/blob/master/zones.csv
   boolean ntp_set = false; // has ntp time been set
+  boolean ntp_first = true; // first time ntp based event needs processing
   void setupNtp();
+  virtual void AppNTPSet();    // called once after NTP time is first set
   void time_is_set(boolean from_sntp /* <= this optional parameter can be used with ESP8266 Core 3.0.0*/);
   uint32_t sntp_startup_delay_MS_rfc_not_less_than_60000();
   uint32_t sntp_update_delay_MS_rfc_not_less_than_15000();
 #endif
 
+private:
+  bool deepSleepWorkaround = false;  // Flag to track if deep sleep workaround is needed
+  void deepSleepNK(uint32 t_us); // alternate deep sleep method for zoombie boot issue (see implementation for details)
+
+
 };
-
-
 
 #endif // BASEAPP_H

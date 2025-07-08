@@ -35,6 +35,12 @@ private:
   const char* getMDNSHostname() {
     return "ESP8266-Zoomrec";
   }
+  
+  void AppNTPSet()
+  {
+    time_t now = time(nullptr);
+    console.log(Console::INFO, F("NTP time received: %s"), ctime(&now));
+  }
 
   void AppDeepSleepStateInit()
   {

@@ -53,7 +53,7 @@ BaseApp::BaseApp()
   // Check if the flash ID is in our list of problematic chips
   for (size_t i = 0; i < NUM_PROBLEMATIC_FLASH_CHIPS; i++) {
     if ((flashId & 0xFFFFFF) == (PROBLEMATIC_FLASH_CHIPS[i] & 0xFFFFFF)) {
-      _deepSleepWorkaround = true;
+      deepSleepWorkaround = true;
       break;
     }
   }
@@ -144,16 +144,6 @@ void BaseApp::setupNtp()
 void BaseApp::time_is_set(boolean from_sntp /* <= this optional parameter can be used with ESP8266 Core 3.0.0*/)
 {
   ntp_set = true;
-
-  time_t now = time(nullptr);
-  // causes dumps with HTTP CONSOLE???
-  // console.log(Console::INFO, F("NTP time received from_sntp=%s"), from_sntp ? "true" : "false");
-  // console.log(Console::INFO, F("Current local time: %s"), ctime(&now));
-
-  // we do this once here once time is set, because otherwise config timestamp will be 1970-01-01
-#ifdef HTTP_CONFIG
-  performHttpConfigUpdate();
-#endif  
 }
 
 uint32_t BaseApp::sntp_startup_delay_MS_rfc_not_less_than_60000()
@@ -271,7 +261,7 @@ boolean BaseApp::performHttpConfigUpdate()
     default:
       console.log(Console::ERROR, F("HTTP request %s failed with code: %d"), http_config_url.c_str(), httpCode);
       if (responseDoc.containsKey("message")) {
-        console.log(Console::ERROR, F("Error: %s"), responseDoc["message"].as<String>().c_str());
+        console.log(Console::ERROR, F("message: %s"), responseDoc["message"].as<String>().c_str());
       }
       return false;
       break;
@@ -494,7 +484,7 @@ void BaseApp::setup()
   uint32_t flashId = ESP.getFlashChipId();
   console.log(Console::INFO, F("Flash ID: 0x%06X, Deep Sleep Workaround: %s"), 
              (flashId & 0xFFFFFF), 
-             _deepSleepWorkaround ? "Enabled" : "Disabled");
+             deepSleepWorkaround ? "Enabled" : "Disabled");
 
   console.log(Console::DEBUG, F("Start of initialization: Reset Reason='%s'"), getResetReasonString(ESP.getResetInfoPtr()->reason).c_str());
 
@@ -547,6 +537,10 @@ void BaseApp::setup()
   config.setupOtaServer(&console);
 #endif
 
+#ifdef HTTP_CONFIG
+  performHttpConfigUpdate();
+#endif  
+
 #ifdef HTTP_OTA
   performHttpOtaUpdate();
 #endif
@@ -590,6 +584,11 @@ void BaseApp::AppDeepSleepStateInit()
   // override this method if required
 }
 
+void BaseApp::AppNTPSet()
+{
+  // override this method if you need to perform actions after NTP time is first set
+}
+
 void BaseApp::loop()
 {
 
@@ -606,6 +605,14 @@ void BaseApp::loop()
 #ifdef ARDUINO_OTA
   // Handle any OTA upgrade
   ArduinoOTA.handle();
+#endif
+
+#ifdef USE_NTP
+  // Call AppNTPSet once after NTP time is first set
+  if (ntp_set && ntp_first) {
+    ntp_first = false;
+    AppNTPSet();
+  }
 #endif
 
   // Watchdog timer - resets if setup takes longer than allocated time
@@ -745,7 +752,7 @@ void BaseApp::deepSleepNK(uint32 t_us)
 }
 
 void BaseApp::deepSleep(uint32_t time_us, RFMode mode) {
-    if (_deepSleepWorkaround) {
+    if (deepSleepWorkaround) {
         // For the workaround, we need to set the deep sleep option manually
         system_deep_sleep_set_option(mode);
         // Use the workaround method for problematic flash chips
@@ -760,7 +767,7 @@ void BaseApp::deepSleep(uint32_t time_us, RFMode mode) {
     
     // // If we get here, sleep didn't work - try the other method as a fallback
     // console.log(Console::WARNING, F("Primary deep sleep method failed, trying fallback"));
-    // if (_deepSleepWorkaround) {
+    // if (deepSleepWorkaround) {
     //     ESP.deepSleep(time_us, mode);
     // } else {
     //     deepSleepNK(time_us);
