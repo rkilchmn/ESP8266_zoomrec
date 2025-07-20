@@ -51,7 +51,8 @@ private:
   void AppSetup()
   {
     // Put your initialisation code here
-    pinMode(INPUTPINRESETSWITCH, INPUT_PULLUP);
+    // pinMode(INPUTPINRESETSWITCH, INPUT_PULLUP);
+    pinMode(INPUTPINRESETSWITCH, INPUT);
     pinMode(OUTPUTPINPOWERBUTTON, OUTPUT);
 
     console.log(Console::DEBUG, F("DeepSleepState: changedPowerState=%d"), changedPowerState);
