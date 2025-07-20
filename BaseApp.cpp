@@ -47,8 +47,7 @@ BaseApp::BaseApp()
   //   20	Micron
   //   A1	Macronix
   //   0B	XTX (Chinese)
-  uint32_t flashId = ESP.getFlashChipId();
-
+  flashId = ESP.getFlashChipId();
 
   // Check if the flash ID is in our list of problematic chips
   for (size_t i = 0; i < NUM_PROBLEMATIC_FLASH_CHIPS; i++) {
@@ -475,19 +474,6 @@ void BaseApp::setup()
   gdbstub_init();
 #endif
 
-
-  AppFirmwareVersion();
-  console.log(Console::INFO, F("Current firmware version: '%s'"), (FIRMWARE_VERSION).c_str());
-  logEnabledFeatures();
-  
-  // Log flash ID and workaround status
-  uint32_t flashId = ESP.getFlashChipId();
-  console.log(Console::INFO, F("Flash ID: 0x%06X, Deep Sleep Workaround: %s"), 
-             (flashId & 0xFFFFFF), 
-             deepSleepWorkaround ? "Enabled" : "Disabled");
-
-  console.log(Console::DEBUG, F("Start of initialization: Reset Reason='%s'"), getResetReasonString(ESP.getResetInfoPtr()->reason).c_str());
-
   // setup for deep sleep
   pinMode(D0, WAKEUP_PULLUP); // be carefull when using D0 and using deep sleep
   int deep_sleep_option = config.get("deep_sleep_option", WAKE_RFCAL);
@@ -521,6 +507,16 @@ void BaseApp::setup()
   }
 #endif
 #endif
+
+  AppFirmwareVersion();
+  console.log(Console::INFO, F("Current firmware version: '%s'"), (FIRMWARE_VERSION).c_str());
+  logEnabledFeatures();
+
+  console.log(Console::INFO, F("Flash ID: 0x%06X, Deep Sleep Workaround: %s"), 
+            (flashId & 0xFFFFFF), 
+            deepSleepWorkaround ? "Enabled" : "Disabled");
+
+  console.log(Console::DEBUG, F("Start of initialization: Reset Reason='%s'"), getResetReasonString(ESP.getResetInfoPtr()->reason).c_str());
 
   // Print config
   config.print(&console);

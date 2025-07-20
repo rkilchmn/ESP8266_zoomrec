@@ -183,6 +183,7 @@ protected:
 #endif
 
 private:
+  uint32_t flashId;
   bool deepSleepWorkaround = false;  // Flag to track if deep sleep workaround is needed
   void deepSleepNK(uint32 t_us); // alternate deep sleep method for zoombie boot issue (see implementation for details)
 
