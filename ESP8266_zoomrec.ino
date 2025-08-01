@@ -185,7 +185,7 @@ private:
 
         if (!eventOngoing) {
           // call get api with status postprocessing and this client_id
-          snprintf(path, sizeof(path), "/event?Filter.1.Name=status&Filter.1.Operator=%s&Filter.1.Value=%d&?Filter.2.Name=assigned&Filter.2.Operator=%s&Filter.2.Value=%s",
+          snprintf(path, sizeof(path), "/event?Filter.1.Name=status&Filter.1.Operator=%s&Filter.1.Value=%d&?Filter.2.Name=assigned&Filter.2.Operator=%s&Filter.2.Value=%s&fields=status",
             urlEncode("="), 3, urlEncode("="), urlEncode(config.get("client_id", "")).c_str());
   
           httpCode = JSONAPIClient::performRequest(
