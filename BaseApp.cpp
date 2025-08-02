@@ -719,32 +719,39 @@ void BaseApp::logEnabledFeatures() {
     #endif
 }
 
-uint32_t*RT= (uint32_t *)0x60000700;
+/*
+alternate deep sleep function to overcome "zombie" boot stopping after "ets Jan 8 2013,rst cause:2, boot mode:(3,6)"
+Code is from https://github.com/esp8266/Arduino/issues/6318#issuecomment-2571455549
+it is an improvement over https://github.com/esp8266/Arduino/issues/6318#issuecomment-2238811311
+1) the sleep time is exact 
+2) serial is prperly flushed before deepsleep (other serial messages originated before deepsleep show after wakeup)
 
-// alternate deep sleep function to overcome "zombie" boot stopping after "ets Jan 8 2013,rst cause:2, boot mode:(3,6)"
-// see https://github.com/esp8266/Arduino/issues/6318
-// see https://github.com/esp8266/Arduino/issues/6007 
-// checkout this https://github.com/NickHrach/LongDeepSleep
-void BaseApp::deepSleepNK(uint32 t_us)
+see also https://github.com/esp8266/Arduino/issues/6007 
+other possible solution  https://github.com/NickHrach/LongDeepSleep
+*/
+static uint32 *rtc = (uint32 *)0x60000700;
+
+void BaseApp::deepSleepNK(uint32 time_us)
 {
-  RT[4] = 0;
-  *RT = 0;
-  RT[1]=100;
-  RT[3] = 0x10010;
-  RT[6] = 8;
-  RT[17] = 4;
-  RT[2] = 1<<20;
+  rtc[0] = 0x30;
+  rtc[1] = rtc[7] + 5;
+  rtc[3] = 0x10010;
+  rtc[4] = 0;
+  rtc[6] = 8;
+  rtc[17] = 4;
+  rtc[2] = 1 << 20;
   ets_delay_us(10);
-  RT[1]=t_us>>3;
-  RT[3] = 0x640C8;
-  RT[4]= 0;
-  RT[6] = 0x18;
-  RT[16] = 0x7F;
-  RT[17] = 0x20;
-  RT[39] = 0x11;
-  RT[40] = 0x03;
-  RT[2] |= 1<<20;
-  __asm volatile ("waiti 0");
+  rtc[0] &= 0xFCF;
+  rtc[0] = 0;
+  rtc[1] = rtc[7] + (45 * (time_us >> 8));
+  rtc[3] = 0x640C8;
+  rtc[6] = 0x18;
+  rtc[16] = 0x7F;
+  rtc[17] = 0x20;
+  rtc[39] = 0x11;
+  rtc[40] = 0x03;
+  rtc[2] = 1 << 20;
+  __asm volatile("waiti 0");
 }
 
 void BaseApp::deepSleep(uint32_t time_us, RFMode mode) {
