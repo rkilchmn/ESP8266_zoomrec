@@ -279,7 +279,7 @@ boolean BaseApp::performHttpOtaUpdate()
   console.log(Console::INFO, F("Checking for firmware update via HTTP OTA from %s"), http_ota_url.c_str());
 
   WiFiClient client;
-  client.setTimeout(30000); // 
+  client.setTimeout(5 * 60 * 1000); // timeout after x minutes
 
 #ifdef LED_STATUS_FLASH
   ESPhttpUpdate.setLedPin(STATUS_LED, LED_ON); // define level for LED on

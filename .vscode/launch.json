@@ -71,6 +71,36 @@
                     "text": "set serial baud 74880"
                 }
             ]
+        },
+        {
+            "name": "ESP8266 OTA Upload",
+            "type": "python",
+            "request": "launch",
+            "program": "${env:LOCALAPPDATA}//Arduino15//packages//esp8266//tools//espota.py",
+            "args": [
+              "-i",
+              "${input:espIpAddress}",
+              "-p",
+              "8081",
+              "--auth=${input:espOtaPassword}",
+              "-f",
+              "${workspaceFolder}/build/ESP8266_zoomrec.ino.bin"
+            ],
+            "console": "integratedTerminal"
         }
+    ],
+    "inputs": [
+      {
+        "id": "espIpAddress",
+        "type": "promptString",
+        "description": "Enter ESP8266 IP address",
+        "default": "192.168.1.50"
+      },
+      {
+        "id": "espOtaPassword",
+        "type": "promptString",
+        "description": "Enter ESP8266 OTA password",
+        "default": ""
+      }
     ]
 }
