@@ -142,97 +142,139 @@ private:
         config.get("http_api_username", ""), config.get("http_api_password", ""), ""
       );
 
-      if (httpCode == HTTP_CODE_OK or httpCode == HTTP_CODE_NO_CONTENT) {
-        bool eventOngoing = false;  
-        if (responseBody.size() > 0) {
-          console.log(Console::DEBUG, F("response for /event/next: "));
-          serializeJsonPretty(responseBody, console);
-          console.println();
-          // extract
-          char startStr[50];
-          char endStr[50];
-          char nowStr[50];
+      const int EVENT_ONGOING_UNKNOWN = -1;
+      const int EVENT_NOT_ONGOING = 0;
+      const int EVENT_ONGOING = 1;
+      
+      int eventOngoing = EVENT_ONGOING_UNKNOWN;
 
-          // Check if required fields exist in the response
-          if (!responseBody.containsKey("dtstart_instance_lead") || 
-              !responseBody.containsKey("dtend_instance_trail") || 
-              !responseBody.containsKey("dtnow")) {
-            console.log(Console::DEBUG, F("Missing required fields in response"));
-            return;
-          }
-          
-          strcpy(startStr, responseBody["dtstart_instance_lead"]);
-          strcpy(endStr, responseBody["dtend_instance_trail"]);
-          strcpy(nowStr, responseBody["dtnow"]);
-
-          // Additional check for empty strings (though the above check should handle this)
-          if ((strlen(startStr) == 0) || (strlen(endStr) == 0) || (strlen(nowStr) == 0))
-          {
-            console.log(Console::DEBUG, F("response does not contain dtstart_instance_lead, dtend_instance_trail or dtnow"));
-          }
-          else
-          {
-            // Convert ISO 8601 timestamps to time_t (Unix timestamp)
-            time_t startTime = convertISO8601ToUnixTime(startStr);
-            time_t endTime = convertISO8601ToUnixTime(endStr);
-            time_t currentTime = convertISO8601ToUnixTime(nowStr);
-
-            // Check if the event has started and has not yet ended
-            if ((currentTime >= startTime) && (currentTime <= endTime))
-              eventOngoing = true;
-          }
-        }
-
-        if (!eventOngoing) {
-          // call get api with status postprocessing and this client_id
-          snprintf(path, sizeof(path), "/event?Filter.1.Name=status&Filter.1.Operator=%s&Filter.1.Value=%d&?Filter.2.Name=assigned&Filter.2.Operator=%s&Filter.2.Value=%s&fields=status",
-            urlEncode("="), 3, urlEncode("="), urlEncode(config.get("client_id", "")).c_str());
-  
-          httpCode = JSONAPIClient::performRequest(
-            JSONAPIClient::HTTP_METHOD_GET, config.get("http_api_base_url", ""), path,
-            emptyRequestHeader, emptyRequestBody, responseBody,
-            config.get("http_api_username", ""), config.get("http_api_password", ""), ""
-          );
-  
-          if (httpCode == HTTP_CODE_OK && responseBody.size() > 0) {
-            console.log(Console::DEBUG, F("response for /event/get: "));
+      switch (httpCode)
+      {
+        case HTTP_CODE_OK:
+          if (responseBody.size() > 0) {
+            console.log(Console::DEBUG, F("response for /event/next: "));
             serializeJsonPretty(responseBody, console);
             console.println();
-  
-            // still in postprocessing
-            eventOngoing = true;
-          }
-          else {
-            // something failed, already logged in getJsonApiResponse
-          }
-        }
-  
-        // update PC power status
-        if (eventOngoing)
-        {
-          console.log(Console::DEBUG, F("Event ongoing..."));
-          if (getPowerState() == PC_OFF)
-          {
-            console.log(Console::INFO, F("Starting PC..."));
-            startPC();
-            changedPowerState = true; // we changed power state
-          }
-        }
-        else
-        {
-          console.log(Console::DEBUG, F("No event ongoing..."));
-          if (getPowerState() == PC_ON)
-          {
-            if (changedPowerState) { // did we change the power state?
-              console.log(Console::INFO, F("Shutting down PC..."));
-              shutDownPC();
-              changedPowerState = false; // reset
+            // extract
+            char startStr[50];
+            char endStr[50];
+            char nowStr[50];
+
+            // Check if required fields exist in the response
+            if (!responseBody.containsKey("dtstart_instance_lead") || 
+                !responseBody.containsKey("dtend_instance_trail") || 
+                !responseBody.containsKey("dtnow")) {
+              console.log(Console::ERROR, F("Missing required fields in response"));
+              eventOngoing = EVENT_ONGOING_UNKNOWN;
+            }
+            else
+            {
+              strcpy(startStr, responseBody["dtstart_instance_lead"]);
+              strcpy(endStr, responseBody["dtend_instance_trail"]);
+              strcpy(nowStr, responseBody["dtnow"]);
+
+              // Additional check for empty strings (though the above check should handle this)
+              if ((strlen(startStr) == 0) || (strlen(endStr) == 0) || (strlen(nowStr) == 0))
+              {
+                console.log(Console::ERROR, F("response for '/event/next' does not contain dtstart_instance_lead, dtend_instance_trail or dtnow"));
+                eventOngoing = EVENT_ONGOING_UNKNOWN;
+              }
+              else
+              {
+                // Convert ISO 8601 timestamps to time_t (Unix timestamp)
+                time_t startTime = convertISO8601ToUnixTime(startStr);
+                time_t endTime = convertISO8601ToUnixTime(endStr);
+                time_t currentTime = convertISO8601ToUnixTime(nowStr);
+
+                // Check if the event has started and has not yet ended
+                if ((currentTime >= startTime) && (currentTime <= endTime))
+                  eventOngoing = EVENT_ONGOING;
+              }
             }
           }
+          else  
+          {
+            console.log(Console::WARNING, F("response with status code %d for '/event/next' is empty"), httpCode);
+            eventOngoing = EVENT_ONGOING_UNKNOWN;
+          }
+          break;
+        case HTTP_CODE_NO_CONTENT:
+          console.log(Console::DEBUG, F("response with status code %d for '/event/next' is empty"), httpCode);
+          eventOngoing = EVENT_ONGOING_UNKNOWN;
+          break;
+        default:
+          console.log(Console::WARNING, F("Call to '/event/next' failed with httpCode=%d"), httpCode);
+          eventOngoing = EVENT_ONGOING_UNKNOWN;
+          break;
+      }
+
+      if (eventOngoing == EVENT_ONGOING_UNKNOWN) {
+        const int EVENT_STATUS_POSTPROCESSING = 3;
+        // call get api with status postprocessing and this client_id
+        snprintf(path, sizeof(path), "/event?Filter.1.Name=status&Filter.1.Operator=%s&Filter.1.Value=%d&?Filter.2.Name=assigned&Filter.2.Operator=%s&Filter.2.Value=%s&fields=status",
+          urlEncode("="), EVENT_STATUS_POSTPROCESSING, urlEncode("="), urlEncode(config.get("client_id", "")).c_str());
+
+        httpCode = JSONAPIClient::performRequest(
+          JSONAPIClient::HTTP_METHOD_GET, config.get("http_api_base_url", ""), path,
+          emptyRequestHeader, emptyRequestBody, responseBody,
+          config.get("http_api_username", ""), config.get("http_api_password", ""), ""
+        );
+
+        switch (httpCode) {
+          case HTTP_CODE_OK:
+            if (responseBody.size() > 0) {
+              console.log(Console::DEBUG, F("response for /event/get: "));
+              serializeJsonPretty(responseBody, console);
+              console.println();
+  
+              // still in postprocessing
+              eventOngoing = EVENT_ONGOING;
+            }
+            else {
+              console.log(Console::WARNING, F("response with status code %d for '/event/get' is empty"), httpCode);
+              eventOngoing = EVENT_ONGOING_UNKNOWN;
+            }
+            break;
+          case HTTP_CODE_NO_CONTENT:
+            console.log(Console::DEBUG, F("response with status code %d for '/event/get' is empty"), httpCode);
+            eventOngoing = EVENT_NOT_ONGOING;
+            break;
+          default:
+            console.log(Console::WARNING, F("Call to '/event/get' failed with httpCode=%d"), httpCode);
+            eventOngoing = EVENT_ONGOING_UNKNOWN;
+            break;
         }
       }
-      else {
-        // something failed, already logged in getJsonApiResponse
+
+      // update PC power status
+      switch (eventOngoing)
+      { 
+      case EVENT_ONGOING:
+        console.log(Console::INFO, F("Event ongoing..."));
+        if (getPowerState() == PC_OFF)
+        {
+          console.log(Console::INFO, F("Starting PC..."));
+          startPC();
+          changedPowerState = true; // we changed power state
+        }
+        break;
+      case EVENT_NOT_ONGOING:
+        console.log(Console::INFO, F("No event ongoing..."));
+        if (getPowerState() == PC_ON)
+        {
+          if (changedPowerState) { // did we change the power state?
+            console.log(Console::INFO, F("Shutting down PC..."));
+            shutDownPC();
+            changedPowerState = false; // reset
+          }
+        }
+        break;
+      case EVENT_ONGOING_UNKNOWN:
+        console.log(Console::WARNING, F("Status of event ongoing unknown. No action taken."));
+        break;
+      default:
+        console.log(Console::ERROR, F("Invalid eventOngoing value: %d"), eventOngoing);
+        break;
       }
     }
 

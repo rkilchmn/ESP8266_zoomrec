@@ -218,7 +218,7 @@ boolean BaseApp::performHttpConfigUpdate()
   String http_config_username = config.get("http_config_username", HTTP_CONFIG_USERNAME);
   String http_config_password = config.get("http_config_password", HTTP_CONFIG_PASSWORD);
 
-  console.log(Console::INFO, F("Downloading config from %s"), http_config_url.c_str());
+  console.log(Console::INFO, F("Checking for config update via HTTP from %s"), http_config_url.c_str());
 
   // Allocate JSON documents for request and response
   DynamicJsonDocument requestHeader(256);  // Headers with version info and last_updated
@@ -245,7 +245,7 @@ boolean BaseApp::performHttpConfigUpdate()
     case HTTP_CODE_OK:
       // Save the configuration
       if (config.saveConfig(responseDoc)) {
-        console.log(Console::INFO, F("Successfully updated config from %s"), http_config_url.c_str());
+        console.log(Console::INFO, F("Successfully updated config via HTTP from %s"), http_config_url.c_str());
         return true;
       } else {
         console.log(Console::ERROR, F("Failed to save config"));
@@ -254,7 +254,7 @@ boolean BaseApp::performHttpConfigUpdate()
       break;
     case HTTP_CODE_NOT_MODIFIED:
     case HTTP_CODE_NO_CONTENT:
-      console.log(Console::INFO, F("No Config Update available"));
+      console.log(Console::INFO, F("No Config Update available via HTTP"));
       return true;
       break;
     default:
@@ -276,7 +276,7 @@ boolean BaseApp::performHttpOtaUpdate()
   String http_ota_password = config.get("http_ota_password", HTTP_OTA_PASSWORD);
 
   // Check server for firmware updates
-  console.log(Console::INFO, F("Checking for firmware update via HTTP OTA from %s"), http_ota_url.c_str());
+  console.log(Console::INFO, F("Checking for firmware update via HTTP from %s"), http_ota_url.c_str());
 
   WiFiClient client;
   client.setTimeout(5 * 60 * 1000); // timeout after x minutes
@@ -293,15 +293,15 @@ boolean BaseApp::performHttpOtaUpdate()
   switch (ESPhttpUpdate.update(client, http_ota_url, FIRMWARE_VERSION))
   {
   case HTTP_UPDATE_FAILED:
-    console.log(Console::WARNING, F("Firmware update via HTTP OTA failed: Code (%d) %s"), ESPhttpUpdate.getLastError(), ESPhttpUpdate.getLastErrorString().c_str());
+    console.log(Console::WARNING, F("Firmware update via HTTP failed: Code (%d) %s"), ESPhttpUpdate.getLastError(), ESPhttpUpdate.getLastErrorString().c_str());
     return false;
 
   case HTTP_UPDATE_NO_UPDATES:
-    console.log(Console::INFO, F("No firmware update available via HTTP OTA "));
+    console.log(Console::INFO, F("No firmware update available via HTTP"));
     return false;
 
   case HTTP_UPDATE_OK:
-    console.log(Console::INFO, F("Firmware update via HTTP OTA successfull"));
+    console.log(Console::INFO, F("Firmware update via HTTP successfull"));
     return true;
   default:
     return false;
@@ -646,7 +646,7 @@ void BaseApp::loop()
     {
       // Enter DeepSleep
       deepSleepState.saveToRTC();
-      console.log(Console::DEBUG, F("Entering deep sleep for %d seconds..."), DEEP_SLEEP_SECONDS);
+      console.log(Console::INFO, F("Entering deep sleep for %d seconds..."), DEEP_SLEEP_SECONDS);
       console.flush();
       digitalWrite(STATUS_LED, HIGH);
       deepSleep(DEEP_SLEEP_SECONDS * 1000000);
@@ -759,25 +759,11 @@ void BaseApp::deepSleep(uint32_t time_us, RFMode mode) {
         // For the workaround, we need to set the deep sleep option manually
         system_deep_sleep_set_option(mode);
         // Use the workaround method for problematic flash chips
-        console.log(Console::INFO, F("Using deep sleep workaround for this flash chip"));
-        console.log(Console::DEBUG, F("Deep sleep for %u us with RF mode %d"), time_us, mode);
+        console.log(Console::DEBUG, F("Using deep sleep workaround for this zombie flash chip for %d us with RF mode %d"), time_us, mode);
         deepSleepNK(time_us);
     } else {
         // Use standard deep sleep for known good chips
-        console.log(Console::INFO, F("Using standard deep sleep"));
+        console.log(Console::DEBUG, F("Using deep sleep for %d us with RF mode %d"), time_us, mode);
         ESP.deepSleep(time_us, mode);
     }
-    
-    // // If we get here, sleep didn't work - try the other method as a fallback
-    // console.log(Console::WARNING, F("Primary deep sleep method failed, trying fallback"));
-    // if (deepSleepWorkaround) {
-    //     ESP.deepSleep(time_us, mode);
-    // } else {
-    //     deepSleepNK(time_us);
-    // }
-    
-    // // If we still haven't gone to sleep, try one last desperate attempt
-    // console.log(Console::ERROR, F("Deep sleep failed, forcing sleep"));
-    // delay(100);
-    // ESP.deepSleep(0, mode);
 }
