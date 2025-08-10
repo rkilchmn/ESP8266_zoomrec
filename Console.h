@@ -44,11 +44,16 @@ public:
     LogLevel intToLogLevel(int intValue);
 
     void log(LogLevel level, const __FlashStringHelper *format, ...);
+    
+    // Set the time format string (strftime format)
+    // Maximum length is 31 characters (plus null terminator)
+    void setTimeFormat(const char *format);
 
 protected:
     Stream *primaryStream;
     Stream *SecondaryOutputStream;     // backup for output e.g. keep sending to Serial
     LogLevel logLevelThreshold = INFO; // Default log level is DEBUG
+    char timeFormat[32] = "%Y-%m-%d %H:%M:%S";  // Default time format
     
 };
 

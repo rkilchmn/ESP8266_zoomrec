@@ -466,6 +466,10 @@ void BaseApp::setup()
    // determine logLevel
    int logLevel = config.get("log_level", Console::DEBUG);
    console.setLogLevel(console.intToLogLevel(logLevel));
+   // set log time format
+   if (config.exists("log_time_format")) {
+     console.setTimeFormat(config.get("log_time_format", ""));
+   }
 
   console.println(); // newline after garbage from startup
 

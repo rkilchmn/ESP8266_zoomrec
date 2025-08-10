@@ -119,10 +119,11 @@ void Console::log(LogLevel level, const __FlashStringHelper *format, ...)
         time_t localTime = time(nullptr);
         struct tm *tm = localtime(&localTime);
 
-        // Create a temp string using strftime() function
+        // Create a temp string using strftime() function with stored time format
         char temp[100];
-        strftime(temp, sizeof(temp), "%Y-%m-%d %H:%M:%S ", tm);
+        strftime(temp, sizeof(temp), timeFormat, tm);
         print(temp);
+        print(" ");
 
         // log level
         print(getLogLevelString(level));
@@ -136,5 +137,14 @@ void Console::log(LogLevel level, const __FlashStringHelper *format, ...)
         print("\n");
 
         Console::flush();
+    }
+}
+
+void Console::setTimeFormat(const char *format) {
+    if (format != nullptr && *format != '\0') {
+        // Copy up to 31 characters plus null terminator
+        strncpy(timeFormat, format, sizeof(timeFormat) - 1);
+        // Ensure null termination
+        timeFormat[sizeof(timeFormat) - 1] = '\0';
     }
 }
