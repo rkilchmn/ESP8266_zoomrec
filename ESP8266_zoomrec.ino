@@ -200,7 +200,7 @@ private:
           break;
         case HTTP_CODE_NO_CONTENT:
           console.log(Console::DEBUG, F("response with status code %d for '/event/next' is empty"), httpCode);
-          eventOngoing = EVENT_ONGOING_UNKNOWN;
+          eventOngoing = EVENT_NOT_ONGOING; // no next event but need to check postprocessing
           break;
         default:
           console.log(Console::WARNING, F("Call to '/event/next' failed with httpCode=%d"), httpCode);
@@ -208,7 +208,7 @@ private:
           break;
       }
 
-      if (eventOngoing == EVENT_ONGOING_UNKNOWN) {
+      if (eventOngoing == EVENT_NOT_ONGOING or eventOngoing == EVENT_ONGOING_UNKNOWN) {
         const int EVENT_STATUS_POSTPROCESSING = 3;
         // call get api with status postprocessing and this client_id
         snprintf(path, sizeof(path), "/event?Filter.1.Name=status&Filter.1.Operator=%s&Filter.1.Value=%d&?Filter.2.Name=assigned&Filter.2.Operator=%s&Filter.2.Value=%s&fields=status",
@@ -237,7 +237,17 @@ private:
             break;
           case HTTP_CODE_NO_CONTENT:
             console.log(Console::DEBUG, F("response with status code %d for '/event/get' is empty"), httpCode);
-            eventOngoing = EVENT_NOT_ONGOING;
+            switch (eventOngoing) {
+              case EVENT_NOT_ONGOING:
+                eventOngoing = EVENT_NOT_ONGOING; // there was no next event and also no postprocessing
+                break;
+              case EVENT_ONGOING_UNKNOWN:
+                eventOngoing = EVENT_ONGOING_UNKNOWN; // unsure if there was next event and there is no postprocessing
+                break;
+              default:
+                eventOngoing = EVENT_ONGOING_UNKNOWN;
+                break;
+            }
             break;
           default:
             console.log(Console::WARNING, F("Call to '/event/get' failed with httpCode=%d"), httpCode);
