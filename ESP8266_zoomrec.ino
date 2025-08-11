@@ -189,6 +189,8 @@ private:
                 // Check if the event has started and has not yet ended
                 if ((currentTime >= startTime) && (currentTime <= endTime))
                   eventOngoing = EVENT_ONGOING;
+                else
+                  eventOngoing = EVENT_NOT_ONGOING;
               }
             }
           }
@@ -239,10 +241,10 @@ private:
             console.log(Console::DEBUG, F("response with status code %d for '/event/get' is empty"), httpCode);
             switch (eventOngoing) {
               case EVENT_NOT_ONGOING:
-                eventOngoing = EVENT_NOT_ONGOING; // there was no next event and also no postprocessing
+                eventOngoing = EVENT_NOT_ONGOING; // there was no next event ongoing and also no postprocessing
                 break;
               case EVENT_ONGOING_UNKNOWN:
-                eventOngoing = EVENT_ONGOING_UNKNOWN; // unsure if there was next event and there is no postprocessing
+                eventOngoing = EVENT_ONGOING_UNKNOWN; // unsure if there was next event ongoing and there is no postprocessing
                 break;
               default:
                 eventOngoing = EVENT_ONGOING_UNKNOWN;
