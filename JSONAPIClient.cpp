@@ -1,39 +1,109 @@
 #include "JSONAPIClient.h"
-
 #include <ESP8266HTTPClient.h>
-#include <WiFiClientSecure.h>
 #include <ArduinoJson.h>
 #include <base64.h>
 
-// Define a function to send an HTTPS request with basic authentication
+// Initialize static member
+JSONAPIClient* JSONAPIClient::instance = nullptr;
+
+// Singleton instance getter
+JSONAPIClient& JSONAPIClient::getInstance() {
+    if (!instance) {
+        instance = new JSONAPIClient();
+    }
+    return *instance;
+}
+
+JSONAPIClient::~JSONAPIClient() {
+    cleanup();
+    instance = nullptr;
+}
+
+void JSONAPIClient::cleanup() {
+    if (httpClient) {
+        httpClient->stop();
+        httpClient.reset();
+        insecureInitialized = false;
+    }
+    if (httpsClient) {
+        httpsClient->stop();
+        httpsClient.reset();
+        secureInitialized = false;
+    }
+}
+
+bool JSONAPIClient::initSecureClient(const char* tls_fingerprint, bool debug) {
+    if (!secureInitialized) {
+        httpsClient = std::make_unique<WiFiClientSecure>();
+        
+        // Set buffer sizes to 512 bytes each for secure client
+        httpsClient->setBufferSizes(512, 512);
+        
+        if (strlen(tls_fingerprint) > 0) {
+            httpsClient->setFingerprint(tls_fingerprint);
+            if (debug) {
+                Serial.println("JSONAPIClient: Using HTTPS with TLS fingerprint verification");
+                Serial.printf("Fingerprint: %s\n", tls_fingerprint);
+            }
+        } else {
+            httpsClient->setInsecure();
+            if (debug) {
+                Serial.println("JSONAPIClient: WARNING! Using HTTPS without certificate validation (INSECURE)");
+            }
+        }
+        secureInitialized = true;
+    }
+    return secureInitialized;
+}
+
+bool JSONAPIClient::initInsecureClient(bool debug) {
+    if (!insecureInitialized) {
+        httpClient = std::make_unique<WiFiClient>();
+        if (debug) {
+            Serial.println("JSONAPIClient: Using plain HTTP (no encryption)");
+        }
+        insecureInitialized = true;
+    }
+    return insecureInitialized;
+}
+
 int JSONAPIClient::performRequest(
     int method, const char *url, const char *path, 
     JsonDocument& requestHeader, JsonDocument& requestBody, JsonDocument& responseBody,
     const char *http_username, const char *http_password, const char *tls_fingerprint)
 {
-  WiFiClient client;
+    return getInstance().performRequestImpl(
+        method, url, path, requestHeader, requestBody, responseBody,
+        http_username, http_password, tls_fingerprint
+    );
+}
 
-  bool debug = false;
+int JSONAPIClient::performRequestImpl(
+    int method, const char *url, const char *path, 
+    JsonDocument& requestHeader, JsonDocument& requestBody, JsonDocument& responseBody,
+    const char *http_username, const char *http_password, const char *tls_fingerprint)
+{
+    bool debug = false;
+    bool isHttps = strncmp(url, "https", 5) == 0;
+    
+    // Initialize the appropriate client
+    bool clientReady = isHttps ? 
+        initSecureClient(tls_fingerprint, debug) : 
+        initInsecureClient(debug);
+        
+    if (!clientReady) {
+        return HTTP_CODE_HTTP_BEGIN_FAILED;
+    }
+    
+    // Get the appropriate client
+    WiFiClient* client = isHttps ? httpsClient.get() : httpClient.get();
 
-  if (strncmp(url, "https", 5) == 0)
-  {
-    // Use WiFiClientSecure for HTTPS requests
-    WiFiClientSecure secureClient;
-
-    if (strlen(tls_fingerprint) > 0)
-      secureClient.setFingerprint(tls_fingerprint);
-    else
-      secureClient.setInsecure();
-
-    client = secureClient;
-  }
-
-  // Initialize the HTTP client with the WiFi client and server/port
-  HTTPClient http;
-  String uri = String(url) + String(path);
-  if (!http.begin(client, uri)) {
-    return HTTP_CODE_HTTP_BEGIN_FAILED;
-  }
+    // Initialize the HTTP client with the WiFi client and server/port
+    HTTPClient http;
+    String uri = String(url) + String(path);
+    if (!http.begin(*client, uri)) {
+        return HTTP_CODE_HTTP_BEGIN_FAILED;
+    }
 
   (debug) ? Serial.printf("JSONAPIClient::performRequest uri=%s\n", uri.c_str()) : 0;
 
@@ -114,6 +184,11 @@ int JSONAPIClient::performRequest(
 
   // Release the resources used by the HTTP client
   http.end();
+
+  // Clean up if there was an error to ensure fresh connection next time
+  if (httpCode <= 0) {
+      cleanup();
+  }
 
   return httpCode;
 }
