@@ -16,10 +16,21 @@ ManageWifiClient::~ManageWifiClient() {}
 void ManageWifiClient::initializeSecureClient() {
     if (!secureClient) {
         secureClient = std::unique_ptr<BearSSL::WiFiClientSecure>(new BearSSL::WiFiClientSecure());
+        
+        // Initialize session if not already done
+        if (!sslSession) {
+            sslSession = std::make_unique<BearSSL::Session>();
+        }
+        
+        // Set the session for the client
+        secureClient->setSession(sslSession.get());
     }
     
     if (serverPubKeyPemStr.length() > 0) {
-        serverPubKey = std::unique_ptr<BearSSL::PublicKey>(new BearSSL::PublicKey(serverPubKeyPemStr.c_str()));
+        if (!serverPubKey) {
+            serverPubKey = std::unique_ptr<BearSSL::PublicKey>(new BearSSL::PublicKey(serverPubKeyPemStr.c_str()));
+        }
+        
         if (serverPubKey) {
             secureClient->setKnownKey(serverPubKey.get());
             secureClient->allowSelfSignedCerts();
@@ -29,7 +40,8 @@ void ManageWifiClient::initializeSecureClient() {
             return;
         }
     } else {
-        Serial.println(F("ManageWifiClient: No public key provided for secure client."));
+        secureClient->setInsecure();
+        Serial.println(F("ManageWifiClient: No public key provided for secure client, using insecure connection."));
     }
 }
 

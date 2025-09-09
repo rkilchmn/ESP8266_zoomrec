@@ -27,6 +27,7 @@ private:
     std::unique_ptr<WiFiClient> nonSecureClient;
     std::unique_ptr<BearSSL::WiFiClientSecure> secureClient;
     std::unique_ptr<BearSSL::PublicKey> serverPubKey;
+    std::unique_ptr<BearSSL::Session> sslSession;
 
     void initializeSecureClient();
     void initializeNonSecureClient();
