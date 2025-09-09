@@ -3,10 +3,9 @@
 
 #include <UrlEncode.h>
 
-
-HttpStreamBuffered::HttpStreamBuffered(const char *logId, const char *url, const char *path, 
+HttpStreamBuffered::HttpStreamBuffered(WiFiClient& client, const char *logId, const char *url, const char *path, 
                                      const char *http_username, const char *http_password, bool debug)
-  : overwriting(false), debug(debug) {
+  : client(client), overwriting(false), debug(debug) {
   if (debug) {
     Serial.printf("[HttpStreamBuffered::HttpStreamBuffered] bufferSize=%d\n", CIRCULAR_BUFFER_SIZE);
   }
@@ -40,6 +39,7 @@ HttpStreamBuffered::~HttpStreamBuffered() {
   delete[] username;
   delete[] password;
 }
+
 size_t HttpStreamBuffered::write(uint8_t val)
 {
   if (buffer.available() < 1) {
@@ -128,11 +128,17 @@ bool HttpStreamBuffered::callHttpApi( const char *data, long dataSize) {
       String encoded = urlEncode(data);
       staticJsonRequestBody["content"] = encoded.c_str();
 
-      int httpCode = JSONAPIClient::performRequest( 
-        JSONAPIClient::HTTP_METHOD_POST, url, path, 
-        staticJsonRequestHeader, staticJsonRequestBody, staticJsonResponseBody, 
-        username ,password, ""
-      );    
+      int httpCode = JSONAPIClient::performRequest(
+        client,
+        JSONAPIClient::HTTP_METHOD_POST,
+        url,
+        path,
+        staticJsonRequestHeader,
+        staticJsonRequestBody,
+        staticJsonResponseBody,
+        username,
+        password
+      );
 
       if (httpCode == HTTP_CODE_OK) {
         return true;

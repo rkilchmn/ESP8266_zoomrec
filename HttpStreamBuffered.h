@@ -11,6 +11,7 @@
 class HttpStreamBuffered : public Stream
 {
 protected:
+  WiFiClient& client;
   CircularBuffer<uint8_t, CIRCULAR_BUFFER_SIZE> buffer;
   boolean overwriting;
   char *logId;
@@ -21,7 +22,7 @@ protected:
   bool debug;
 
 public:
-  HttpStreamBuffered(const char *logId, const char *url, const char *path, const char *http_username, const char *http_password, bool debug = false);
+  HttpStreamBuffered(WiFiClient& client, const char *logId, const char *url, const char *path, const char *http_username, const char *http_password, bool debug = false);
   ~HttpStreamBuffered();
 
   size_t write(uint8_t val);

@@ -137,9 +137,15 @@ private:
       StaticJsonDocument<0> emptyRequestBody;
 
       int httpCode = JSONAPIClient::performRequest(
-        JSONAPIClient::HTTP_METHOD_GET, config.get("http_api_base_url", ""), path,
-        emptyRequestHeader, emptyRequestBody, responseBody,
-        config.get("http_api_username", ""), config.get("http_api_password", ""), ""
+        *client,
+        JSONAPIClient::HTTP_METHOD_GET, 
+        config.get("http_api_base_url", ""), 
+        path,
+        emptyRequestHeader,
+        emptyRequestBody,
+        responseBody,
+        config.get("http_api_username", ""), 
+        config.get("http_api_password", "")
       );
 
       const int EVENT_ONGOING_UNKNOWN = -1;
@@ -216,10 +222,17 @@ private:
         snprintf(path, sizeof(path), "/event?Filter.1.Name=status&Filter.1.Operator=%s&Filter.1.Value=%d&Filter.2.Name=assigned&Filter.2.Operator=%s&Filter.2.Value=%s&fields=status",
           urlEncode("="), EVENT_STATUS_POSTPROCESSING, urlEncode("="), urlEncode(config.get("client_id", "")).c_str());
 
+        // Reuse the same TLS settings as the first request
         httpCode = JSONAPIClient::performRequest(
-          JSONAPIClient::HTTP_METHOD_GET, config.get("http_api_base_url", ""), path,
-          emptyRequestHeader, emptyRequestBody, responseBody,
-          config.get("http_api_username", ""), config.get("http_api_password", ""), ""
+          *client,
+          JSONAPIClient::HTTP_METHOD_GET, 
+          config.get("http_api_base_url", ""), 
+          path,
+          emptyRequestHeader, 
+          emptyRequestBody, 
+          responseBody,
+          config.get("http_api_username", ""), 
+          config.get("http_api_password", "")
         );
 
         switch (httpCode) {

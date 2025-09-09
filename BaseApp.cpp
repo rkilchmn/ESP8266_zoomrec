@@ -1,4 +1,3 @@
-
 #include "BaseApp.h"
 
 #include "features.h"
@@ -6,9 +5,12 @@
 #include "iso_date.h"
 #include <stdarg.h>
 #include <c_types.h>
+#include <string.h>
+#include <WiFiClientSecure.h>
 
 #ifdef HTTP_OTA
 #include <ESP8266HTTPClient.h>
+#include <ESP8266httpUpdate.h>
 #endif
 
 #ifdef GDB_DEBUG
@@ -27,7 +29,9 @@ const size_t BaseApp::NUM_PROBLEMATIC_FLASH_CHIPS =
 
 BaseApp::BaseApp()
 {
-  // Identify faulty flash chips that prevent booting after deep sleep
+    // Client will be initialized when needed
+    
+    // Identify faulty flash chips that prevent booting after deep sleep
   // https://github.com/esp8266/Arduino/issues/6007#issuecomment-2080368936
   // The XTX chips will return 0B in the last byte, like this: 16400B
   
@@ -137,7 +141,17 @@ void BaseApp::setupNtp()
 {
   settimeofday_cb([this](boolean from_sntp)
                   { time_is_set(from_sntp); }); // optional: callback if time was sent
+
   configTime(config.get("timezone_ntp", TZ_Europe_London), NTP_SERVER);
+
+  // Wait for time to be set (with timeout)
+  const unsigned long timeout = 30000; // 30 seconds timeout
+  const unsigned long start = millis();
+   
+  while (!ntp_set && (millis() - start < timeout)) {
+    delay(100);
+    yield(); // Let the ESP8266 handle background tasks
+  }
 }
 
 void BaseApp::time_is_set(boolean from_sntp /* <= this optional parameter can be used with ESP8266 Core 3.0.0*/)
@@ -148,7 +162,7 @@ void BaseApp::time_is_set(boolean from_sntp /* <= this optional parameter can be
 uint32_t BaseApp::sntp_startup_delay_MS_rfc_not_less_than_60000()
 {
   randomSeed(A0);
-  return random(5000);
+  return random(100);
 }
 
 uint32_t BaseApp::sntp_update_delay_MS_rfc_not_less_than_15000()
@@ -230,15 +244,15 @@ boolean BaseApp::performHttpConfigUpdate()
   requestHeader["x-ESP8266-config-version"] = config.get("version", "");
 
   int httpCode = JSONAPIClient::performRequest(
+    *client,
     JSONAPIClient::HTTP_METHOD_GET,
     http_config_url.c_str(),
-    NULL,
+    "",
     requestHeader,
     requestBody,
     responseDoc,
     http_config_username.c_str(),
-    http_config_password.c_str(),
-    ""  // No TLS fingerprint
+    http_config_password.c_str()
   );
 
   switch (httpCode) {
@@ -272,41 +286,61 @@ boolean BaseApp::performHttpConfigUpdate()
 boolean BaseApp::performHttpOtaUpdate()
 {
   String http_ota_url = config.get("http_ota_url", HTTP_OTA_URL);
+  if (http_ota_url.isEmpty()) {
+    console.log(Console::WARNING, F("No HTTP OTA URL configured"));
+    return false;
+  }
+
   String http_ota_username = config.get("http_ota_username", HTTP_OTA_USERNAME);
   String http_ota_password = config.get("http_ota_password", HTTP_OTA_PASSWORD);
 
-  // Check server for firmware updates
   console.log(Console::INFO, F("Checking for firmware update via HTTP from %s"), http_ota_url.c_str());
-
-  WiFiClient client;
-  client.setTimeout(5 * 60 * 1000); // timeout after x minutes
-
-#ifdef LED_STATUS_FLASH
-  ESPhttpUpdate.setLedPin(STATUS_LED, LED_ON); // define level for LED on
-#endif
-
-  // use authorization?
-  if (!http_ota_username.isEmpty() && !http_ota_password.isEmpty())
+  
+  // Set up HTTP update
+  ESPhttpUpdate.rebootOnUpdate(true);
+  
+  // Set LED pin for status if configured
+  #ifdef LED_STATUS_FLASH
+    ESPhttpUpdate.setLedPin(STATUS_LED, LED_ON);
+  #endif
+  
+  // Set authorization if credentials are provided
+  if (!http_ota_username.isEmpty() && !http_ota_password.isEmpty()) {
     ESPhttpUpdate.setAuthorization(http_ota_username, http_ota_password);
-
-  watchdog.detach();
-  switch (ESPhttpUpdate.update(client, http_ota_url, FIRMWARE_VERSION))
-  {
-  case HTTP_UPDATE_FAILED:
-    console.log(Console::WARNING, F("Firmware update via HTTP failed: Code (%d) %s"), ESPhttpUpdate.getLastError(), ESPhttpUpdate.getLastErrorString().c_str());
-    return false;
-
-  case HTTP_UPDATE_NO_UPDATES:
-    console.log(Console::INFO, F("No firmware update available via HTTP"));
-    return false;
-
-  case HTTP_UPDATE_OK:
-    console.log(Console::INFO, F("Firmware update via HTTP successfull"));
-    return true;
-  default:
-    return false;
   }
-  return false;
+
+  // Detach watchdog to prevent timeouts during update
+  watchdog.detach();
+
+  // http update needs a much longer timeout
+  int prev_timeout = client->getTimeout();
+  client->setTimeout(5 * 60 * 1000); // timeout after x minutes
+  
+  // Start the update
+  t_httpUpdate_return ret = ESPhttpUpdate.update(*client, http_ota_url, FIRMWARE_VERSION);
+
+  // Restore previous timeout
+  client->setTimeout(prev_timeout);
+  
+  // Handle the result
+  switch (ret) {
+    case HTTP_UPDATE_FAILED:
+      console.log(Console::ERROR, F("Firmware update failed: %s"), 
+                ESPhttpUpdate.getLastErrorString().c_str());
+      return false;
+      
+    case HTTP_UPDATE_NO_UPDATES:
+      console.log(Console::INFO, F("No firmware update available"));
+      return false;
+      
+    case HTTP_UPDATE_OK:
+      console.log(Console::INFO, F("Firmware update successful"));
+      return true;
+      
+    default:
+      console.log(Console::ERROR, F("Unknown firmware update status: %d"), ret);
+      return false;
+  }
 }
 #endif
 
@@ -486,6 +520,18 @@ void BaseApp::setup()
   // connect to WIFI depending on what connection features are enabled
   connectWiFi();
 
+#ifdef USE_NTP
+  setupNtp();
+#endif
+
+  // Set up the client based on configuration
+  // IMPORTANT: if root certificate is used NTP time must be set to check cert validity 
+
+  if (!setupClient()) {
+    console.log(Console::ERROR, F("Failed to set up HTTP client"));
+    // Don't return false since setup() is void
+  }
+
 #ifdef CONSOLE_TELNET
   int port = config.get("telnet_port", TELNET_DEFAULT_PORT);
   console.log(Console::INFO, F("Telnet service started on port: %d"), port);
@@ -504,8 +550,12 @@ void BaseApp::setup()
   else
   {
     pBufferedHTTPRestStream = new HttpStreamBuffered(
-        config.get("http_log_id", FIRMWARE_VERSION.c_str()), http_log_url, "",
-        config.get("http_log_username"), config.get("http_log_password"));
+      *client,
+      config.get("http_log_id", FIRMWARE_VERSION.c_str()), 
+      http_log_url, "",
+      config.get("http_log_username"),
+      config.get("http_log_password")
+    );
     console.log(Console::INFO, F("Starting HTTP logging to %s."), http_log_url);
     console.begin(*pBufferedHTTPRestStream, Serial);
   }
@@ -543,10 +593,6 @@ void BaseApp::setup()
 
 #ifdef HTTP_OTA
   performHttpOtaUpdate();
-#endif
-
-#ifdef USE_NTP
-  setupNtp();
 #endif
 
 #ifdef DEEP_SLEEP_SECONDS
@@ -607,13 +653,13 @@ void BaseApp::loop()
   ArduinoOTA.handle();
 #endif
 
-#ifdef USE_NTP
-  // Call AppNTPSet once after NTP time is first set
-  if (ntp_set && ntp_first) {
-    ntp_first = false;
-    AppNTPSet();
-  }
-#endif
+// #ifdef USE_NTP
+//   // Call AppNTPSet once after NTP time is first set
+//   if (ntp_set && ntp_first) {
+//     ntp_first = false;
+//     AppNTPSet();
+//   }
+// #endif
 
   // Watchdog timer - resets if setup takes longer than allocated time
   watchdog.once(WATCHDOG_LOOP_SECONDS, [this]()
@@ -661,6 +707,86 @@ void BaseApp::loop()
     }
   }
 #endif
+}
+
+bool BaseApp::setupClient() {
+  // Hardcoded PEM public key stored in RAM (avoid PROGMEM for BearSSL)
+//   static const char pubkeyPem[] = R"KEY(
+// -----BEGIN PUBLIC KEY-----
+// MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAE38HxSo9LBaFlVRhtsdFhfY5+qwfH
+// d5ZA4aTcf+MEQcHF/YiHuH7YIxn39JuV4+b/rOhlwbi2/Bostz/ll5ZGMg==
+// -----END PUBLIC KEY-----
+// )KEY";
+
+//   static const char rootKeyPem[] = R"KEY(
+// -----BEGIN CERTIFICATE-----
+// MIIFazCCA1OgAwIBAgIRAIIQz7DSQONZRGPgu2OCiwAwDQYJKoZIhvcNAQELBQAw
+// TzELMAkGA1UEBhMCVVMxKTAnBgNVBAoTIEludGVybmV0IFNlY3VyaXR5IFJlc2Vh
+// cmNoIEdyb3VwMRUwEwYDVQQDEwxJU1JHIFJvb3QgWDEwHhcNMTUwNjA0MTEwNDM4
+// WhcNMzUwNjA0MTEwNDM4WjBPMQswCQYDVQQGEwJVUzEpMCcGA1UEChMgSW50ZXJu
+// ZXQgU2VjdXJpdHkgUmVzZWFyY2ggR3JvdXAxFTATBgNVBAMTDElTUkcgUm9vdCBY
+// MTCCAiIwDQYJKoZIhvcNAQEBBQADggIPADCCAgoCggIBAK3oJHP0FDfzm54rVygc
+// h77ct984kIxuPOZXoHj3dcKi/vVqbvYATyjb3miGbESTtrFj/RQSa78f0uoxmyF+
+// 0TM8ukj13Xnfs7j/EvEhmkvBioZxaUpmZmyPfjxwv60pIgbz5MDmgK7iS4+3mX6U
+// A5/TR5d8mUgjU+g4rk8Kb4Mu0UlXjIB0ttov0DiNewNwIRt18jA8+o+u3dpjq+sW
+// T8KOEUt+zwvo/7V3LvSye0rgTBIlDHCNAymg4VMk7BPZ7hm/ELNKjD+Jo2FR3qyH
+// B5T0Y3HsLuJvW5iB4YlcNHlsdu87kGJ55tukmi8mxdAQ4Q7e2RCOFvu396j3x+UC
+// B5iPNgiV5+I3lg02dZ77DnKxHZu8A/lJBdiB3QW0KtZB6awBdpUKD9jf1b0SHzUv
+// KBds0pjBqAlkd25HN7rOrFleaJ1/ctaJxQZBKT5ZPt0m9STJEadao0xAH0ahmbWn
+// OlFuhjuefXKnEgV4We0+UXgVCwOPjdAvBbI+e0ocS3MFEvzG6uBQE3xDk3SzynTn
+// jh8BCNAw1FtxNrQHusEwMFxIt4I7mKZ9YIqioymCzLq9gwQbooMDQaHWBfEbwrbw
+// qHyGO0aoSCqI3Haadr8faqU9GY/rOPNk3sgrDQoo//fb4hVC1CLQJ13hef4Y53CI
+// rU7m2Ys6xt0nUW7/vGT1M0NPAgMBAAGjQjBAMA4GA1UdDwEB/wQEAwIBBjAPBgNV
+// HRMBAf8EBTADAQH/MB0GA1UdDgQWBBR5tFnme7bl5AFzgAiIyBpY9umbbjANBgkq
+// hkiG9w0BAQsFAAOCAgEAVR9YqbyyqFDQDLHYGmkgJykIrGF1XIpu+ILlaS/V9lZL
+// ubhzEFnTIZd+50xx+7LSYK05qAvqFyFWhfFQDlnrzuBZ6brJFe+GnY+EgPbk6ZGQ
+// 3BebYhtF8GaV0nxvwuo77x/Py9auJ/GpsMiu/X1+mvoiBOv/2X/qkSsisRcOj/KK
+// NFtY2PwByVS5uCbMiogziUwthDyC3+6WVwW6LLv3xLfHTjuCvjHIInNzktHCgKQ5
+// ORAzI4JMPJ+GslWYHb4phowim57iaztXOoJwTdwJx4nLCgdNbOhdjsnvzqvHu7Ur
+// TkXWStAmzOVyyghqpZXjFaH3pO3JLF+l+/+sKAIuvtd7u+Nxe5AW0wdeRlN8NwdC
+// jNPElpzVmbUq4JUagEiuTDkHzsxHpFKVK7q4+63SM1N95R1NbdWhscdCb+ZAJzVc
+// oyi3B43njTOQ5yOf+1CceWxG1bQVs5ZufpsMljq4Ui0/1lvh+wjChP4kqKOJ2qxq
+// 4RgqsahDYVvTH9w7jXbyLeiNdd8XM2w9U/t7y0Ff/9yi0GE44Za4rF2LN9d11TPA
+// mRGunUHBcnWEvgJBQl9nJEiU0Zsnvgc/ubhPgXRR4Xq37Z0j4r7g1SgEEzwxA57d
+// emyPxgcYxn/eR44/KJ4EBs+lVDR3veyJm+kXQ99b21/+jh5Xos1AnX5iItreGCc=
+// -----END CERTIFICATE-----
+// // )KEY";
+
+  // Create the secure client first
+  BearSSL::WiFiClientSecure* secureClient = new BearSSL::WiFiClientSecure();
+  if (!secureClient) {
+    Serial.println(F("BaseApp: Failed to create WiFiClientSecure"));
+    return false;
+  }
+
+  // Get public key from configuration
+  const char* pubkeyPem = config.get("tls_server_pubkey", "");
+  if (strlen(pubkeyPem) == 0) {
+    Serial.println(F("BaseApp: No TLS server public key found in configuration (tls_server_pubkey)"));
+    return false;
+  }
+  
+  // Create and set the public key
+  serverPubKey = std::unique_ptr<BearSSL::PublicKey>(new BearSSL::PublicKey(pubkeyPem));
+  if (!serverPubKey) {
+    Serial.println(F("Failed to create PublicKey from configuration"));
+    delete secureClient;
+    return false;
+  }
+  
+  secureClient->setKnownKey(serverPubKey.get());
+  secureClient->allowSelfSignedCerts();
+  
+  // Minimize buffer usage
+  secureClient->setBufferSizes(512, 512);
+  
+  // Set minimum security level (adjust as needed)
+  // secureClient->setInsecure();  // Keep this if you want to allow self-signed certs
+  
+  // Wrap the raw pointer into the unique_ptr<WiFiClient> member
+  client = std::unique_ptr<WiFiClient>(secureClient);
+  
+  return client != nullptr;
 }
 
 // Function to log enabled features
