@@ -49,16 +49,7 @@ void ManageWifiClient::init(const char* pubKey) {
 }
 
 static bool urlStartsWithHttps(const char* url) {
-    if (!url) return false;
-    // case-insensitive check for "https"
-    const char* s = url;
-    const char* t = "https";
-    for (int i = 0; i < 5; ++i) {
-        char c = s[i];
-        if (c >= 'A' && c <= 'Z') c = c - 'A' + 'a';
-        if (c != t[i]) return false;
-    }
-    return true;
+    return url && strncasecmp(url, "https", 5) == 0;
 }
 
 WiFiClient* ManageWifiClient::getClient(const char* url) {
