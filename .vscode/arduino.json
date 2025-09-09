@@ -1,7 +1,7 @@
 {
     "output": "./build",
     "sketch": "ESP8266_zoomrec.ino",
-    "configuration": "xtal=80,vt=flash,exception=disabled,stacksmash=disabled,ssl=all,mmu=4816H,non32xfer=fast,eesz=16M14M,ip=lm2f,dbg=Serial,lvl=SSL,wipe=none,baud=512000",
+    "configuration": "xtal=80,vt=flash,exception=disabled,stacksmash=disabled,ssl=all,mmu=4816H,non32xfer=fast,eesz=16M14M,ip=lm2f,dbg=Disabled,lvl=None____,wipe=none,baud=512000",
     "board": "esp8266:esp8266:d1_mini_pro",
     "port": "COM5"
 }

@@ -15,7 +15,7 @@ int JSONAPIClient::performRequest(
     const char *http_username, 
     const char *http_password) 
 {
-    bool debug = true;
+    bool debug = false;
     HTTPClient http;
     
     // Build the full URL

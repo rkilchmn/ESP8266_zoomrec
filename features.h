@@ -15,7 +15,7 @@
 // #define GDB_DEBUG                     // enable debugging using GDB using serial
 // use either CONSOLE_TELNET or CONSOLE_HTTP
 // #define CONSOLE_TELNET                // console output can be accessed by telnet server on ESP
-// #define CONSOLE_HTTP               // console output sent to a HTTP server app to view
+#define CONSOLE_HTTP               // console output sent to a HTTP server app to view
 #define USE_NTP                       // connect to NTP server to retrieve time
 #define USE_MDNS                      // allow hostnet resolution via mDNS in local networks
 
