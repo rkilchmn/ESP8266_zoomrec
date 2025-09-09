@@ -137,7 +137,7 @@ private:
       StaticJsonDocument<0> emptyRequestBody;
 
       int httpCode = JSONAPIClient::performRequest(
-        *client,
+        *ManageWifiClient::getClient(config.get("http_api_base_url", "")),
         JSONAPIClient::HTTP_METHOD_GET, 
         config.get("http_api_base_url", ""), 
         path,
@@ -224,7 +224,7 @@ private:
 
         // Reuse the same TLS settings as the first request
         httpCode = JSONAPIClient::performRequest(
-          *client,
+          *ManageWifiClient::getClient(config.get("http_api_base_url", "")),
           JSONAPIClient::HTTP_METHOD_GET, 
           config.get("http_api_base_url", ""), 
           path,

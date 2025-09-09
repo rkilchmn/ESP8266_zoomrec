@@ -19,6 +19,7 @@
 #include "Config.h"
 #include <WiFiClientSecure.h>
 #include <memory>
+#include "ManageWifiClient.h"
 
 // Forward declaration to avoid including BearSSL headers here
 namespace BearSSL { class PublicKey; }
@@ -83,16 +84,7 @@ public:
   void loop();
   
 protected:
-  // Single client instance that can be either secure or non-secure
-  std::unique_ptr<WiFiClient> client;
-  // Persisted BearSSL public key used with setKnownKey(); must outlive the secure client
-  std::unique_ptr<BearSSL::PublicKey> serverPubKey;
   
-  /**
-   * @brief Set up the client based on configuration
-   * @return true if client was set up successfully, false otherwise
-   */
-  bool setupClient();
   
   static const uint32_t PROBLEMATIC_FLASH_CHIPS[];  // List of known problematic flash chip IDs
   static const size_t NUM_PROBLEMATIC_FLASH_CHIPS;  // Number of entries in the array
