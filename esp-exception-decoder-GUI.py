@@ -261,22 +261,52 @@ class ESPExceptionParser(object):
             raise Exception("ELF file not found: '{}'".format(self.elf_path))
 
     def parse_text(self, text):
-        m = re.search('Backtrace: (.*)', text)
+        # 1) Try new format with explicit stack block markers
+        # Example: "... CUT HERE ... >>>stack>>> ... <<<stack<<< ..."
+        m_block = re.search(r">>>stack>>>[\s\S]*?<<<stack<<<", text)
+        if m_block:
+            stack_block = m_block.group(0)
+            addresses = self.extract_addresses(stack_block)
+            if addresses:
+                print("Stack trace:")
+                for l in self.decode_function_addresses(addresses):
+                    line = l.decode(errors='ignore') if isinstance(l, bytes) else str(l)
+                    print("  " + line)
+                return
+
+        # 2) Fallback to classic "Backtrace:" line
+        m = re.search(r"Backtrace:\s*(.*)", text)
         if m:
             print("Stack trace:")
             for l in self.parse_stack(m.group(1)):
-                print("  " + l)
-        else:
-            print("No stack trace found.")
+                line = l.decode(errors='ignore') if isinstance(l, bytes) else str(l)
+                print("  " + line)
+            return
+
+        print("No stack trace found.")
 
     def parse_stack(self, text):
-        r = re.compile('40[0-2][0-9a-fA-F]{5}')
+        # Accept addresses with or without 0x prefix, e.g., 4028e097 or 0x4028e097
+        r = re.compile(r"(?:0x)?(40[0-2][0-9a-fA-F]{5})")
         m = r.findall(text)
         return self.decode_function_addresses(m)
 
+    def extract_addresses(self, text):
+        """Extract candidate function addresses from arbitrary text.
+        Matches ESP8266 code addresses starting with 0x402/401/400 (with or without 0x).
+        Returns list of addresses without 0x prefix (normalized)."""
+        r = re.compile(r"(?:0x)?(40[0-2][0-9a-fA-F]{5})")
+        return r.findall(text)
+
     def decode_function_address(self, address):
+        # Normalize address to include 0x prefix for addr2line
+        if not isinstance(address, str):
+            address = address.decode(errors='ignore') if isinstance(address, bytes) else str(address)
+        address = address.strip()
+        if not address.startswith('0x'):
+            address = '0x' + address
         args = [self.addr2line_path, "-e", self.elf_path, "-aipfC", address]
-        return subprocess.check_output(args).strip()
+        return subprocess.check_output(args).decode(errors='ignore').strip()
 
     def decode_function_addresses(self, addresses):
         out = []
