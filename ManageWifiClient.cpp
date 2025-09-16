@@ -26,19 +26,10 @@ void ManageWifiClient::initializeSecureClient() {
         secureClient->setSession(sslSession.get());
     }
     
-    if (serverPubKeyPemStr.length() > 0) {
-        if (!serverPubKey) {
-            serverPubKey = std::unique_ptr<BearSSL::PublicKey>(new BearSSL::PublicKey(serverPubKeyPemStr.c_str()));
-        }
-        
-        if (serverPubKey) {
-            secureClient->setKnownKey(serverPubKey.get());
-            secureClient->allowSelfSignedCerts();
-            secureClient->setBufferSizes(512, 512);
-        } else {
-            Serial.println(F("ManageWifiClient: Failed to create PublicKey."));
-            return;
-        }
+    if (serverPubKey) {
+        secureClient->setKnownKey(serverPubKey.get());
+        secureClient->allowSelfSignedCerts();
+        secureClient->setBufferSizes(512, 512);
     } else {
         secureClient->setInsecure();
         Serial.println(F("ManageWifiClient: No public key provided for secure client, using insecure connection."));
@@ -51,9 +42,17 @@ void ManageWifiClient::initializeNonSecureClient() {
     }
 }
 
-void ManageWifiClient::init(const char* pubKey) {
+void ManageWifiClient::init(const char* serverPubKeyPem) {
     ManageWifiClient& inst = ManageWifiClient::getInstance();
-    inst.serverPubKeyPemStr = pubKey ? String(pubKey) : String("");
+    
+    // Clear existing public key
+    inst.serverPubKey.reset();
+    
+    // Create new public key object if a key is provided
+    if (serverPubKeyPem && strlen(serverPubKeyPem) > 0) {
+        inst.serverPubKey = std::make_unique<BearSSL::PublicKey>(serverPubKeyPem);
+    }
+    
     // If secure client already exists, reinitialize it with the new key
     if (inst.secureClient) {
         inst.initializeSecureClient();

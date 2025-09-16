@@ -23,7 +23,6 @@ private:
     ManageWifiClient(const ManageWifiClient&) = delete;
     void operator=(const ManageWifiClient&) = delete;
 
-    String serverPubKeyPemStr; // own the PEM contents to ensure lifetime safety
     std::unique_ptr<WiFiClient> nonSecureClient;
     std::unique_ptr<BearSSL::WiFiClientSecure> secureClient;
     std::unique_ptr<BearSSL::PublicKey> serverPubKey;

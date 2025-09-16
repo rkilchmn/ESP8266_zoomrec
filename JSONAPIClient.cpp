@@ -91,14 +91,12 @@ int JSONAPIClient::performRequest(
     // Handle the response
     if (httpCode > 0) {
         if (httpCode == HTTP_CODE_OK || httpCode == HTTP_CODE_MOVED_PERMANENTLY) {
-            String payload = http.getString();
-            if (debug) {
-                Serial.printf("JSONAPIClient:: Received response: %s\n", payload.c_str());
-            }
-            DeserializationError error = deserializeJson(responseBody, payload);
+            // Deserialize directly from the HTTP stream to avoid duplicating the payload into a String
+            WiFiClient& stream = http.getStream();
+            DeserializationError error = deserializeJson(responseBody, stream);
             if (error) {
                 if (debug) {
-                    Serial.print("JSONAPIClient: Failed to parse JSON: ");
+                    Serial.print("JSONAPIClient: Failed to parse JSON from stream: ");
                     Serial.println(error.c_str());
                 }
                 http.end();
