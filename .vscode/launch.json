@@ -15,6 +15,14 @@
             ]
         },
         {
+            "name": "Python: Exception Decoder GUI",
+            "type": "python",
+            "request": "launch",
+            "program": "${workspaceFolder}/esp-exception-decoder-GUI.py",
+            "console": "integratedTerminal",
+            "justMyCode": true
+        },
+        {
             "name": "Debug Windows ",
             "type": "cppdbg",
             "request": "launch",
