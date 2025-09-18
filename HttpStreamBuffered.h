@@ -7,6 +7,7 @@
 #include "JSONAPIClient.h"
 
 #define CIRCULAR_BUFFER_SIZE 1024
+#define FLUSH_BUFFER_SIZE 256
 
 class HttpStreamBuffered : public Stream
 {
@@ -14,11 +15,11 @@ protected:
   WiFiClient& client;
   CircularBuffer<uint8_t, CIRCULAR_BUFFER_SIZE> buffer;
   boolean overwriting;
-  char *logId;
-  char *url;
-  char *path; 
-  char *username;
-  char *password;
+  String logId;
+  String url;
+  String path; 
+  String username;
+  String password;
   bool debug;
 
 public:
