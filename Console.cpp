@@ -136,7 +136,14 @@ void Console::log(LogLevel level, const __FlashStringHelper *format, ...)
         print(temp);
         print("\n");
 
-        Console::flush();
+        // For HardwareSerial, call flush to ensure all data is sent for debugging
+        if (primaryStream == &Serial) {
+            primaryStream->flush();
+        }
+
+        if (SecondaryOutputStream != nullptr && SecondaryOutputStream == &Serial) {
+            SecondaryOutputStream->flush();
+        }  
     }
 }
 
