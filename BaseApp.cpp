@@ -253,14 +253,9 @@ boolean BaseApp::performHttpOtaUpdate()
 
   // http update needs a much longer timeout
   WiFiClient* client = ManageWifiClient::getClient(http_ota_url.c_str());
-  int prev_timeout = client->getTimeout();
-  client->setTimeout(5 * 60 * 1000); // timeout after x minutes
   
   // Start the update
   t_httpUpdate_return ret = ESPhttpUpdate.update(*client, http_ota_url, FIRMWARE_VERSION);
-
-  // Restore previous timeout
-  client->setTimeout(prev_timeout);
   
   // Handle the result
   switch (ret) {
