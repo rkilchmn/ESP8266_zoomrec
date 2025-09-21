@@ -221,71 +221,6 @@ void BaseApp::setupArduinoOta()
 }
 #endif
 
-#ifdef HTTP_CONFIG
-boolean BaseApp::performHttpConfigUpdate()
-{
-  String http_config_url = config.get("http_config_url", HTTP_CONFIG_URL);
-  if (http_config_url.isEmpty()) {
-    console.log(Console::WARNING, F("No HTTP config URL configured"));
-    return false;
-  }
-  
-  String http_config_username = config.get("http_config_username", HTTP_CONFIG_USERNAME);
-  String http_config_password = config.get("http_config_password", HTTP_CONFIG_PASSWORD);
-
-  console.log(Console::INFO, F("Checking for config update via HTTP from %s"), http_config_url.c_str());
-
-  // Allocate JSON documents for request and response
-  DynamicJsonDocument requestHeader(256);  // Headers with version info and last_updated
-  DynamicJsonDocument requestBody(0);      // Empty body for GET request
-  DynamicJsonDocument responseDoc(Config::JSON_CONFIG_MAXSIZE);
-  
-  // Add version header
-  requestHeader["x-ESP8266-version"] = FIRMWARE_VERSION;
-  requestHeader["x-ESP8266-config-version"] = config.get("version", "");
-
-  // Use managed client matching the URL scheme
-  {
-    int httpCode = JSONAPIClient::performRequest(
-    *ManageWifiClient::getClient(http_config_url.c_str()),
-    JSONAPIClient::HTTP_METHOD_GET,
-    http_config_url.c_str(),
-    "",
-    requestHeader,
-    requestBody,
-    responseDoc,
-    http_config_username.c_str(),
-    http_config_password.c_str()
-    );
-
-    switch (httpCode) {
-    case HTTP_CODE_OK:
-      // Save the configuration
-      if (config.saveConfig(responseDoc)) {
-        console.log(Console::INFO, F("Successfully updated config via HTTP from %s"), http_config_url.c_str());
-        return true;
-      } else {
-        console.log(Console::ERROR, F("Failed to save config"));
-        return false;
-      }
-      break;
-    case HTTP_CODE_NOT_MODIFIED:
-    case HTTP_CODE_NO_CONTENT:
-      console.log(Console::INFO, F("No Config Update available via HTTP"));
-      return true;
-      break;
-    default:
-      console.log(Console::ERROR, F("HTTP request %s failed with code: %d"), http_config_url.c_str(), httpCode);
-      if (responseDoc.containsKey("message")) {
-        console.log(Console::ERROR, F("message: %s"), responseDoc["message"].as<String>().c_str());
-      }
-      return false;
-      break;
-    }
-  }
-}
-#endif // HTTP_CONFIG
-
 #ifdef HTTP_OTA
 boolean BaseApp::performHttpOtaUpdate()
 {
@@ -591,7 +526,7 @@ void BaseApp::setup()
 #endif
 
 #ifdef HTTP_CONFIG
-  performHttpConfigUpdate();
+  config.performHttpConfigUpdate( FIRMWARE_VERSION, &console);
 #endif  
 
 #ifdef HTTP_OTA

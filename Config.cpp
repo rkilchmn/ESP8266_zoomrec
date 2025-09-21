@@ -1,10 +1,12 @@
 #include "Config.h"
+
+#include "features.h"
 // library
 #include <LittleFS.h>
 // project
 #include "Console.h"
 
-Config::Config() : doc(0), server(JSON_CONFIG_OTA_PORT)
+Config::Config() : configJsonDoc(JSON_CONFIG_MAXSIZE), server(JSON_CONFIG_OTA_PORT)
 {
   if (LittleFS.begin())
     retrieveJSON();
@@ -18,9 +20,8 @@ bool Config::retrieveJSON()
     return false;
   }
 
-  doc = DynamicJsonDocument(JSON_CONFIG_MAXSIZE);
-  DeserializationError error = deserializeJson(doc, file);
-  doc.shrinkToFit();
+  DeserializationError error = deserializeJson(configJsonDoc, file); // implicitly calls configJsonDoc.clear();
+  configJsonDoc.shrinkToFit();
   file.close();
 
   return !error;
@@ -46,7 +47,7 @@ time_t Config::getConfigTimestamp()
 
 int Config::exists(const char *configKey)
 {
-  if (!doc.isNull() && doc.containsKey(configKey))
+  if (!configJsonDoc.isNull() && configJsonDoc.containsKey(configKey))
     return true;
   else
     return false;
@@ -54,20 +55,21 @@ int Config::exists(const char *configKey)
 
 int Config::get(const char *configKey, int defaultValue)
 {
-  if (!doc.isNull() && doc.containsKey(configKey))
-    return doc[configKey].as<int>();
+  if (!configJsonDoc.isNull() && configJsonDoc.containsKey(configKey))
+    return configJsonDoc[configKey].as<int>();
   else
     return defaultValue;
 }
 
 const char *Config::get(const char *configKey, const char *defaultValue)
 {
-  if (!doc.isNull() && doc.containsKey(configKey))
-    return doc[configKey];
+  if (!configJsonDoc.isNull() && configJsonDoc.containsKey(configKey))
+    return configJsonDoc[configKey];
   else
     return defaultValue;
 }
 
+#ifdef JSON_CONFIG_OTA
 void Config::handleOTAServerRequest()
 {
   if (!server.authenticate(get("json_config_ota_username", JSON_CONFIG_USERNAME),
@@ -134,6 +136,7 @@ void Config::setupOtaServer(Console *console)
 void Config::handleOTAServerClient() {
   server.handleClient();
 }
+#endif // JSON_CONFIG_OTA
 
 bool Config::saveConfig(DynamicJsonDocument& configDoc)
 {
@@ -163,9 +166,81 @@ bool Config::saveConfig(DynamicJsonDocument& configDoc)
 
 void Config::print(Console* console)
 {
-  if ((doc != nullptr) && (console != nullptr))
+  if ((configJsonDoc != nullptr) && (console != nullptr))
   {
-    serializeJsonPretty(doc, *console);
+    serializeJsonPretty(configJsonDoc, *console);
     console->println();
   }
+}
+
+#ifdef HTTP_CONFIG
+bool Config::performHttpConfigUpdate(const String& firmwareVersion, Console* console) {
+  String http_config_url = get("http_config_url", HTTP_CONFIG_URL);
+  if (http_config_url.isEmpty()) {
+    if (console) {
+      console->log(Console::WARNING, F("No HTTP config URL configured"));
+    }
+    return false;
+  }
+  
+  String http_config_username = get("http_config_username", HTTP_CONFIG_USERNAME);
+  String http_config_password = get("http_config_password", HTTP_CONFIG_PASSWORD);
+
+  if (console) {
+    console->log(Console::INFO, F("Checking for config update via HTTP from %s"), http_config_url.c_str());
+  }
+
+  // Allocate JSON documents for request and response
+  DynamicJsonDocument requestHeader(256);  // Headers with version info and last_updated
+  DynamicJsonDocument requestBody(0);      // Empty body for GET request
+  
+  // Add version header
+  requestHeader["x-ESP8266-version"] = firmwareVersion;
+  requestHeader["x-ESP8266-config-version"] = get("version", "");
+
+  // Use managed client matching the URL scheme
+  int httpCode = JSONAPIClient::performRequest(
+    *ManageWifiClient::getClient(http_config_url.c_str()),
+    JSONAPIClient::HTTP_METHOD_GET,
+    http_config_url.c_str(),
+    "",
+    requestHeader,
+    requestBody,
+    configJsonDoc,
+    http_config_username.c_str(),
+    http_config_password.c_str()
+  );
+
+  switch (httpCode) {
+    case HTTP_CODE_OK:
+      // Save the configuration
+      if (saveConfig(configJsonDoc)) {
+        if (console) {
+          console->log(Console::INFO, F("Successfully updated config via HTTP from %s"), http_config_url.c_str());
+        }
+        return true;
+      } else {
+        if (console) {
+          console->log(Console::ERROR, F("Failed to save config"));
+        }
+        return false;
+      }
+      
+    case HTTP_CODE_NOT_MODIFIED:
+    case HTTP_CODE_NO_CONTENT:
+      if (console) {
+        console->log(Console::INFO, F("No Config Update available via HTTP"));
+      }
+      return true;
+      
+    default:
+      if (console) {
+        console->log(Console::ERROR, F("HTTP request %s failed with code: %d"), http_config_url.c_str(), httpCode);
+        if (configJsonDoc.containsKey("message")) {
+          console->log(Console::ERROR, F("message: %s"), configJsonDoc["message"].as<String>().c_str());
+        }
+      }
+      return false;
+  }
+#endif // HTTP_CONFIG
 }
