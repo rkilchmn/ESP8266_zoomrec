@@ -635,7 +635,6 @@ void BaseApp::loop()
       // Enter DeepSleep
       deepSleepState.saveToRTC();
       console.log(Console::INFO, F("Entering deep sleep for %d seconds..."), DEEP_SLEEP_SECONDS);
-      console.flush();
       digitalWrite(STATUS_LED, HIGH);
       deepSleep(DEEP_SLEEP_SECONDS * 1000000);
       // Do nothing while we wait for sleep to overcome us
@@ -750,10 +749,12 @@ void BaseApp::deepSleep(uint32_t time_us, RFMode mode) {
         system_deep_sleep_set_option(mode);
         // Use the workaround method for problematic flash chips
         console.log(Console::DEBUG, F("Using deep sleep workaround for this zombie flash chip for %d us with RF mode %d"), time_us, mode);
+        console.flush();
         deepSleepNK(time_us);
     } else {
         // Use standard deep sleep for known good chips
         console.log(Console::DEBUG, F("Using deep sleep for %d us with RF mode %d"), time_us, mode);
+        console.flush();
         ESP.deepSleep(time_us, mode);
     }
 }
