@@ -90,7 +90,7 @@ int JSONAPIClient::performRequest(
     
     // Handle the response
     if (httpCode > 0) {
-        if (httpCode == HTTP_CODE_OK || httpCode == HTTP_CODE_MOVED_PERMANENTLY) {
+        if (httpCode == HTTP_CODE_OK) {
             // Deserialize directly from the HTTP stream to avoid duplicating the payload into a String
             WiFiClient& stream = http.getStream();
             DeserializationError error = deserializeJson(responseBody, stream);
@@ -100,7 +100,7 @@ int JSONAPIClient::performRequest(
                     Serial.println(error.c_str());
                 }
                 http.end();
-                return HTTP_CODE_CONNECTION_FAILED;
+                return HTTP_CODE_DESERIALIZE_RESPONSEBODY_FAILED;
             }
         }
     } else {

@@ -198,6 +198,9 @@ bool Config::performHttpConfigUpdate(const String& firmwareVersion, Console* con
   requestHeader["x-ESP8266-version"] = firmwareVersion;
   requestHeader["x-ESP8266-config-version"] = get("version", "");
 
+  // To free current memory and recreate with full capacity
+  configJsonDoc = DynamicJsonDocument(JSON_CONFIG_MAXSIZE);
+
   // Use managed client matching the URL scheme
   int httpCode = JSONAPIClient::performRequest(
     *ManageWifiClient::getClient(http_config_url.c_str()),
@@ -211,27 +214,32 @@ bool Config::performHttpConfigUpdate(const String& firmwareVersion, Console* con
     http_config_password.c_str()
   );
 
+  bool result = false;
+  bool saved = false;
+
   switch (httpCode) {
     case HTTP_CODE_OK:
       // Save the configuration
       if (saveConfig(configJsonDoc)) {
+        result = true;
+        saved = true;
         if (console) {
           console->log(Console::INFO, F("Successfully updated config via HTTP from %s"), http_config_url.c_str());
         }
-        return true;
       } else {
         if (console) {
           console->log(Console::ERROR, F("Failed to save config"));
         }
-        return false;
       }
+      break;
       
     case HTTP_CODE_NOT_MODIFIED:
     case HTTP_CODE_NO_CONTENT:
       if (console) {
         console->log(Console::INFO, F("No Config Update available via HTTP"));
       }
-      return true;
+      result = true;
+      break;
       
     default:
       if (console) {
@@ -240,7 +248,14 @@ bool Config::performHttpConfigUpdate(const String& firmwareVersion, Console* con
           console->log(Console::ERROR, F("message: %s"), configJsonDoc["message"].as<String>().c_str());
         }
       }
-      return false;
   }
-#endif // HTTP_CONFIG
+
+  // reinstate config if not successfully received and saved
+  if (!saved) {
+    retrieveJSON();
+  }
+
+  return result;
 }
+
+#endif // HTTP_CONFIG
