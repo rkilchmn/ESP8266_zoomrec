@@ -48,3 +48,7 @@ python3 %USERPROFILE%\AppData\Local\Arduino15\packages\esp8266\tools\espota.py -
 linux tool to list mDNS: avahi-browse -a
 sudo apt-get install avahi-utils
 
+ python "C:\Users\I047787\AppData\Local\Arduino15\packages\esp8266\tools\espota.py" -i "192.168.1.56" -p "8081" --auth="<ota-password>" -f "C:\Users\I047787\Documents\Arduino\ESP8266_zoomrec\build\ESP8266_zoomrec.ino.bin"
+
+ ./update_config_prod.sh ESP8266_zoomrec_v2.config_test.json 192.168.1.56
+

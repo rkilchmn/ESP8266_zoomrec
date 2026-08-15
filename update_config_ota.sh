@@ -11,5 +11,5 @@ CONFIG_FILE=$1
 ESP8266_IP=$2
 
 # Execute the curl command
-curl -v -X POST -H "Content-Type: application/json" -u user:myuserpw --data @$CONFIG_FILE http://$ESP8266_IP:8080/config
+curl -v -X POST -H "Content-Type: application/json" -u user:myuserpw --data-binary @$CONFIG_FILE http://$ESP8266_IP:8080/config
 

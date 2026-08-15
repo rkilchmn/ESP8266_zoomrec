@@ -72,11 +72,16 @@ const char *Config::get(const char *configKey, const char *defaultValue)
 #ifdef JSON_CONFIG_OTA
 void Config::handleOTAServerRequest()
 {
+  int result_code = 200;
+  String message;
+
   if (!server.authenticate(get("json_config_ota_username", JSON_CONFIG_USERNAME),
                            get("json_config_ota_password", JSON_CONFIG_PASSWD)))
   {
     return server.requestAuthentication();
   }
+
+  String clientIP = server.client().remoteIP().toString();
 
   if (server.method() == HTTP_POST)
   {
@@ -88,38 +93,45 @@ void Config::handleOTAServerRequest()
       configJsonDoc = DynamicJsonDocument(JSON_CONFIG_MAXSIZE);
       DeserializationError error = deserializeJson( configJsonDoc, server.arg("plain"));
       if (error) {
-        server.send(400, "text/plain", error.c_str());
+        result_code = HTTP_CODE_INTERNAL_SERVER_ERROR;
+        message = F("De-serialization error: ");
+        message += error.c_str();
       }
       else {  
         if (refConsole != nullptr) {
           refConsole->log(Console::INFO, F("OTA Config update received from IP: %s"), server.client().remoteIP().toString().c_str());
           print( refConsole, &configJsonDoc);
         }      
-      
+        
         if (saveConfig(configJsonDoc)) {
-          if (refConsole != nullptr) {
-            refConsole->log(Console::INFO, F("OTA Config received from IP: %s successfully updated"), server.client().remoteIP().toString().c_str());
-          }  
-          
-          server.send(200, "text/plain", "Configuration suceddfully updated");
-          return;
+          result_code = HTTP_CODE_OK;
+          message = F("Configuration successfully updated");
         } else {
-          server.send(400, "text/plain", "Failed to save configuration");
+          result_code = HTTP_CODE_INTERNAL_SERVER_ERROR;
+          message = F("Failed to save configuration");
         }
       }
-      // if we reach here config update failed and old config needs to be re-instated (was overwritten to save memory)
-      retrieveJSON();  
+      if (result_code != HTTP_CODE_OK) {
+        // failed -> reinstate old config
+        retrieveJSON();  
+      }
     }
     else
     {
-      server.send(400, "text/plain", "Invalid content type: " + server.header("Content-Type"));
+      result_code = HTTP_CODE_BAD_REQUEST;
+      message = F("Content type 'application/json' expected, received: ") + server.header("Content-Type");
     }
   }
   else
   {
-    server.send(405, "text/plain", "Method Not Allowed");
+    result_code = 405;
+    message = F("Method Not Allowed");
   }
 
+  if (refConsole != nullptr) {
+    refConsole->log(Console::INFO, F("OTA Config Update from IP: %s Result: %d - %s"), clientIP.c_str(), result_code, message.c_str());
+  }
+  server.send(result_code, "text/plain", message);
 }
 
 void Config::setupOtaServer(Console *console)
