@@ -101,10 +101,10 @@ void Config::handleOTAServerRequest()
         message += error.c_str();
       }
       else {  
-        if (refConsole != nullptr) {
-          refConsole->log(Console::INFO, F("OTA Config update received from IP: %s, configJsonDoc memory usage: %d of max. %d bytes"), server.client().remoteIP().toString().c_str(), configJsonDoc.memoryUsage(), JSON_CONFIG_MAXSIZE);
-          print( refConsole, &configJsonDoc);
-        }      
+        // if (refConsole != nullptr) {
+        //   // refConsole->log(Console::INFO, F("OTA Config update received from IP: %s, configJsonDoc memory usage: %d of max. %d bytes"), server.client().remoteIP().toString().c_str(), configJsonDoc.memoryUsage(), JSON_CONFIG_MAXSIZE);
+        //   print( refConsole, &configJsonDoc);
+        // }      
         
         if (saveConfig(configJsonDoc)) {
           result_code = HTTP_CODE_OK;
@@ -127,7 +127,7 @@ void Config::handleOTAServerRequest()
   }
   else
   {
-    result_code = 405;
+    result_code = HTTP_CODE_METHOD_NOT_ALLOWED;
     message = F("Method Not Allowed");
   }
 
