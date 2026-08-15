@@ -18,7 +18,7 @@ public:
     int exists(const char *configKey);
     int get(const char *configKey, int defaultValue);
     const char *get(const char *configKey, const char *defaultValue = "");
-    void print(Console* console);
+    void print(Console* console, DynamicJsonDocument* config = nullptr);
 #ifdef JSON_CONFIG_OTA
     void setupOtaServer(Console* console);
     void handleOTAServerClient();

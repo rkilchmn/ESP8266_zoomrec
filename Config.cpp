@@ -84,23 +84,31 @@ void Config::handleOTAServerRequest()
     if (server.hasHeader("Content-Type") && server.header("Content-Type") == "application/json")
     {
       // Parse JSON payload
-      DynamicJsonDocument configDoc(JSON_CONFIG_MAXSIZE);
-      DeserializationError error = deserializeJson( configDoc, server.arg("plain"));
+      // To free current memory and recreate with full capacity
+      configJsonDoc = DynamicJsonDocument(JSON_CONFIG_MAXSIZE);
+      DeserializationError error = deserializeJson( configJsonDoc, server.arg("plain"));
       if (error) {
         server.send(400, "text/plain", error.c_str());
       }
-      else {        
-        if (saveConfig(configDoc)) {
-          // Log the incoming request
+      else {  
+        if (refConsole != nullptr) {
+          refConsole->log(Console::INFO, F("OTA Config update received from IP: %s"), server.client().remoteIP().toString().c_str());
+          print( refConsole, &configJsonDoc);
+        }      
+      
+        if (saveConfig(configJsonDoc)) {
           if (refConsole != nullptr) {
-            refConsole->log(Console::INFO, F("OTA Config update received from IP: %s"), server.client().remoteIP().toString().c_str());
-          }
+            refConsole->log(Console::INFO, F("OTA Config received from IP: %s successfully updated"), server.client().remoteIP().toString().c_str());
+          }  
           
-          server.send(200);
+          server.send(200, "text/plain", "Configuration suceddfully updated");
+          return;
         } else {
           server.send(400, "text/plain", "Failed to save configuration");
         }
       }
+      // if we reach here config update failed and old config needs to be re-instated (was overwritten to save memory)
+      retrieveJSON();  
     }
     else
     {
@@ -111,6 +119,7 @@ void Config::handleOTAServerRequest()
   {
     server.send(405, "text/plain", "Method Not Allowed");
   }
+
 }
 
 void Config::setupOtaServer(Console *console)
@@ -142,6 +151,11 @@ bool Config::saveConfig(DynamicJsonDocument& configDoc)
 {
   configDoc.shrinkToFit();
 
+  // Remove existing file first to avoid truncation issues on LittleFS/ESP8266
+  if (LittleFS.exists(JSON_CONFIG_OTA_FILE)) {
+    LittleFS.remove(JSON_CONFIG_OTA_FILE);
+  }
+
   // Store JSON payload in LittleFS
   File configFile = LittleFS.open(JSON_CONFIG_OTA_FILE, "w");
   if (!configFile)
@@ -150,6 +164,7 @@ bool Config::saveConfig(DynamicJsonDocument& configDoc)
   }
 
   int size = serializeJson(configDoc, configFile);
+  configFile.flush();
   configFile.close();
   
   if (size <= 0) {
@@ -164,11 +179,12 @@ bool Config::saveConfig(DynamicJsonDocument& configDoc)
   return true;
 }
 
-void Config::print(Console* console)
+void Config::print(Console* console, DynamicJsonDocument* config)
 {
-  if ((configJsonDoc != nullptr) && (console != nullptr))
+  JsonDocument& doc = config ? *config : configJsonDoc;
+  if (!doc.isNull() && (console != nullptr))
   {
-    serializeJsonPretty(configJsonDoc, *console);
+    serializeJsonPretty(doc, *console);
     console->println();
   }
 }
