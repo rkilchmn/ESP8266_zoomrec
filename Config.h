@@ -28,7 +28,7 @@ public:
 #ifdef HTTP_CONFIG
     bool performHttpConfigUpdate(const String& firmwareVersion, Console* console);
 #endif // HTTP_CONFIG
-    static const size_t JSON_CONFIG_MAXSIZE = 4096;
+    static const size_t JSON_CONFIG_MAXSIZE = 2048;
 
 protected:
     const char *JSON_CONFIG_OTA_FILE = "/config.json";

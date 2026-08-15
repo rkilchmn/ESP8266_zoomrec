@@ -22,6 +22,9 @@ bool Config::retrieveJSON()
 
   DeserializationError error = deserializeJson(configJsonDoc, file); // implicitly calls configJsonDoc.clear();
   configJsonDoc.shrinkToFit();
+  if (refConsole != nullptr) {
+    refConsole->log(Console::DEBUG, F("configJsonDoc memory usage: %d of max. %d bytes"), configJsonDoc.memoryUsage(), JSON_CONFIG_MAXSIZE);
+  }
   file.close();
 
   return !error;
@@ -99,7 +102,7 @@ void Config::handleOTAServerRequest()
       }
       else {  
         if (refConsole != nullptr) {
-          refConsole->log(Console::INFO, F("OTA Config update received from IP: %s"), server.client().remoteIP().toString().c_str());
+          refConsole->log(Console::INFO, F("OTA Config update received from IP: %s, configJsonDoc memory usage: %d of max. %d bytes"), server.client().remoteIP().toString().c_str(), configJsonDoc.memoryUsage(), JSON_CONFIG_MAXSIZE);
           print( refConsole, &configJsonDoc);
         }      
         
