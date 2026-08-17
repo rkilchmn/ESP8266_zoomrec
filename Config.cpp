@@ -9,25 +9,41 @@
 Config::Config() : configJsonDoc(JSON_CONFIG_MAXSIZE), server(JSON_CONFIG_OTA_PORT)
 {
   if (LittleFS.begin())
-    retrieveJSON();
+    readConfig();
 }
 
-bool Config::retrieveJSON()
+bool Config::readConfig(const char *path)
 {
-  File file = LittleFS.open(JSON_CONFIG_OTA_FILE, "r");
+  if (path == nullptr) {
+    path = JSON_CONFIG_OTA_FILE;
+  }
+
+  File file = LittleFS.open(path, "r");
   if (!file)
   {
+    if (refConsole != nullptr) {
+      refConsole->log(Console::ERROR, F("readConfig: failed to open file %s"), path);
+    }
     return false;
   }
 
+  configJsonDoc = DynamicJsonDocument(JSON_CONFIG_MAXSIZE);
   DeserializationError error = deserializeJson(configJsonDoc, file); // implicitly calls configJsonDoc.clear();
+  file.close();
+
+  if (error) {
+    if (refConsole != nullptr) {
+      refConsole->log(Console::ERROR, F("readConfig: deserialization error in %s: %s"), path, error.c_str());
+    }
+    return false;
+  }
+
   configJsonDoc.shrinkToFit();
   if (refConsole != nullptr) {
     refConsole->log(Console::DEBUG, F("configJsonDoc memory usage: %d of max. %d bytes"), configJsonDoc.memoryUsage(), JSON_CONFIG_MAXSIZE);
   }
-  file.close();
 
-  return !error;
+  return true;
 }
 
 time_t Config::getConfigTimestamp()
@@ -100,13 +116,8 @@ void Config::handleOTAServerRequest()
         message = F("De-serialization error: ");
         message += error.c_str();
       }
-      else {  
-        // if (refConsole != nullptr) {
-        //   // refConsole->log(Console::INFO, F("OTA Config update received from IP: %s, configJsonDoc memory usage: %d of max. %d bytes"), server.client().remoteIP().toString().c_str(), configJsonDoc.memoryUsage(), JSON_CONFIG_MAXSIZE);
-        //   print( refConsole, &configJsonDoc);
-        // }      
-        
-        if (saveConfig(configJsonDoc)) {
+      else {
+        if (saveConfig(server.arg("plain"))) {
           result_code = HTTP_CODE_OK;
           message = F("Configuration successfully updated");
         } else {
@@ -116,7 +127,7 @@ void Config::handleOTAServerRequest()
       }
       if (result_code != HTTP_CODE_OK) {
         // failed -> reinstate old config
-        retrieveJSON();  
+        readConfig();  
       }
     }
     else
@@ -162,33 +173,112 @@ void Config::handleOTAServerClient() {
 }
 #endif // JSON_CONFIG_OTA
 
-bool Config::saveConfig(DynamicJsonDocument& configDoc)
+bool Config::saveConfig(const String& json)
 {
-  configDoc.shrinkToFit();
-
-  // Remove existing file first to avoid truncation issues on LittleFS/ESP8266
-  if (LittleFS.exists(JSON_CONFIG_OTA_FILE)) {
-    LittleFS.remove(JSON_CONFIG_OTA_FILE);
+  if (refConsole != nullptr) {
+    refConsole->log(Console::DEBUG, F("saveConfig: json length=%d"), (int)json.length());
   }
 
-  // Store JSON payload in LittleFS
-  File configFile = LittleFS.open(JSON_CONFIG_OTA_FILE, "w");
-  if (!configFile)
+  FSInfo fs_info;
+  LittleFS.info(fs_info);
+  if (refConsole != nullptr) {
+    refConsole->log(Console::DEBUG, F("LittleFS: total=%d, used=%d, block=%d"), (int)fs_info.totalBytes, (int)fs_info.usedBytes, (int)fs_info.blockSize);
+  }
+
+  // 1. Write the raw JSON directly to a temporary file.
+  if (LittleFS.exists(JSON_CONFIG_OTA_TMP_FILE)) {
+    LittleFS.remove(JSON_CONFIG_OTA_TMP_FILE);
+  }
+
+  File tmpFile = LittleFS.open(JSON_CONFIG_OTA_TMP_FILE, "w");
+  if (!tmpFile)
   {
+    if (refConsole != nullptr) {
+      refConsole->log(Console::ERROR, F("saveConfig: failed to open temp file for writing"));
+    }
     return false;
   }
 
-  int size = serializeJson(configDoc, configFile);
-  configFile.flush();
-  configFile.close();
-  
-  if (size <= 0) {
+  const uint8_t *data = reinterpret_cast<const uint8_t *>(json.c_str());
+  size_t expected = json.length();
+
+  size_t written = tmpFile.write(data, expected);
+
+  if (written != expected) {
+    if (refConsole != nullptr) {
+      refConsole->log(
+          Console::ERROR,
+          F("saveConfig: write() wrote %d bytes, expected %d"),
+          (int)written,
+          (int)expected
+      );
+    }
+    tmpFile.close();
+    LittleFS.remove(JSON_CONFIG_OTA_TMP_FILE);
     return false;
   }
 
-  // Re-read from filesystem
-  if (!retrieveJSON()) {
+  tmpFile.flush();
+  tmpFile.close();
+
+  // 2. Verify the exact number of bytes were written to the temporary file.
+  File tmpCheck = LittleFS.open(JSON_CONFIG_OTA_TMP_FILE, "r");
+  if (!tmpCheck || tmpCheck.size() != json.length()) {
+    int actualSize = tmpCheck ? (int)tmpCheck.size() : -1;
+    if (tmpCheck) {
+      tmpCheck.close();
+    }
+    if (refConsole != nullptr) {
+      refConsole->log(Console::ERROR, F("saveConfig: temp file size %d, expected %d bytes"), actualSize, (int)json.length());
+    }
+    LittleFS.remove(JSON_CONFIG_OTA_TMP_FILE);
     return false;
+  }
+  tmpCheck.close();
+
+  // 3. Verify the temporary file is complete and valid before touching the original.
+  if (!readConfig(JSON_CONFIG_OTA_TMP_FILE)) {
+    if (refConsole != nullptr) {
+      refConsole->log(Console::ERROR, F("saveConfig: temp file failed validation"));
+    }
+    LittleFS.remove(JSON_CONFIG_OTA_TMP_FILE);
+    return false;
+  }
+
+  // 4. Rotate: move the original aside as a backup, then promote the temp file.
+  bool hadOriginal = LittleFS.exists(JSON_CONFIG_OTA_FILE);
+
+  if (hadOriginal) {
+    if (LittleFS.exists(JSON_CONFIG_OTA_BAK_FILE)) {
+      LittleFS.remove(JSON_CONFIG_OTA_BAK_FILE);
+    }
+    if (!LittleFS.rename(JSON_CONFIG_OTA_FILE, JSON_CONFIG_OTA_BAK_FILE)) {
+      if (refConsole != nullptr) {
+        refConsole->log(Console::ERROR, F("saveConfig: failed to rename original to backup"));
+      }
+      LittleFS.remove(JSON_CONFIG_OTA_TMP_FILE);
+      return false;
+    }
+  }
+
+  if (!LittleFS.rename(JSON_CONFIG_OTA_TMP_FILE, JSON_CONFIG_OTA_FILE)) {
+    if (refConsole != nullptr) {
+      refConsole->log(Console::ERROR, F("saveConfig: failed to promote temp file to original"));
+    }
+    if (hadOriginal) {
+      if (!LittleFS.rename(JSON_CONFIG_OTA_BAK_FILE, JSON_CONFIG_OTA_FILE)) {
+        if (refConsole != nullptr) {
+          refConsole->log(Console::ERROR, F("saveConfig: failed to restore original from backup"));
+        }
+      }
+    }
+    LittleFS.remove(JSON_CONFIG_OTA_TMP_FILE);
+    return false;
+  }
+
+  // 5. Success: remove the backup.
+  if (hadOriginal && LittleFS.exists(JSON_CONFIG_OTA_BAK_FILE)) {
+    LittleFS.remove(JSON_CONFIG_OTA_BAK_FILE);
   }
 
   return true;
@@ -249,9 +339,11 @@ bool Config::performHttpConfigUpdate(const String& firmwareVersion, Console* con
   bool saved = false;
 
   switch (httpCode) {
-    case HTTP_CODE_OK:
-      // Save the configuration
-      if (saveConfig(configJsonDoc)) {
+    case HTTP_CODE_OK: {
+      // Serialize the received config back to JSON and save it byte-for-byte.
+      String json;
+      serializeJson(configJsonDoc, json);
+      if (saveConfig(json)) {
         result = true;
         saved = true;
         if (console) {
@@ -263,6 +355,7 @@ bool Config::performHttpConfigUpdate(const String& firmwareVersion, Console* con
         }
       }
       break;
+    }
       
     case HTTP_CODE_NOT_MODIFIED:
     case HTTP_CODE_NO_CONTENT:
@@ -283,7 +376,7 @@ bool Config::performHttpConfigUpdate(const String& firmwareVersion, Console* con
 
   // reinstate config if not successfully received and saved
   if (!saved) {
-    retrieveJSON();
+    readConfig();
   }
 
   return result;

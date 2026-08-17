@@ -23,7 +23,7 @@ public:
     void setupOtaServer(Console* console);
     void handleOTAServerClient();
 #endif // JSON_CONFIG_OTA
-    bool saveConfig(DynamicJsonDocument& configDoc);
+    bool saveConfig(const String& json);
     time_t getConfigTimestamp();
 #ifdef HTTP_CONFIG
     bool performHttpConfigUpdate(const String& firmwareVersion, Console* console);
@@ -32,6 +32,8 @@ public:
 
 protected:
     const char *JSON_CONFIG_OTA_FILE = "/config.json";
+    const char *JSON_CONFIG_OTA_TMP_FILE = "/config.json.tmp";
+    const char *JSON_CONFIG_OTA_BAK_FILE = "/config.json.bak";
     const char *JSON_CONFIG_USERNAME = "user";
     const char *JSON_CONFIG_PASSWD = "myuserpw";
     const char *JSON_CONFIG_OTA_PATH = "/config";
@@ -51,7 +53,7 @@ protected:
     ESP8266WebServer server;
     void handleOTAServerRequest();
 #endif // JSON_CONFIG_OTA
-    bool retrieveJSON();
+    bool readConfig(const char *path = nullptr);
 
 };
 

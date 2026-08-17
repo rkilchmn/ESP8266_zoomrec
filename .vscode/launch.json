@@ -102,7 +102,7 @@
         "id": "espIpAddress",
         "type": "promptString",
         "description": "Enter ESP8266 IP address",
-        "default": "192.168.1.50"
+        "default": "192.168.1.56"
       },
       {
         "id": "espOtaPassword",
