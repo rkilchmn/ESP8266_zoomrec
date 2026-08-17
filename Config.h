@@ -49,6 +49,13 @@ protected:
     DynamicJsonDocument configJsonDoc;
     Console *refConsole = nullptr;
 
+    template<typename... Args>
+    void log(Console::LogLevel level, const __FlashStringHelper *format, Args... args) {
+      if (refConsole != nullptr) {
+        refConsole->log(level, format, args...);
+      }
+    }
+
 #ifdef JSON_CONFIG_OTA
     ESP8266WebServer server;
     void handleOTAServerRequest();
