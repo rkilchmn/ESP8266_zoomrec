@@ -267,20 +267,17 @@ void Config::print(Console* console, DynamicJsonDocument* config)
 
 #ifdef HTTP_CONFIG
 bool Config::performHttpConfigUpdate(const String& firmwareVersion, Console* console) {
+  refConsole = console;
   String http_config_url = get("http_config_url", HTTP_CONFIG_URL);
   if (http_config_url.isEmpty()) {
-    if (console) {
-      console->log(Console::WARNING, F("No HTTP config URL configured"));
-    }
+  log(Console::WARNING, F("No HTTP config URL configured"));
     return false;
   }
   
   String http_config_username = get("http_config_username", HTTP_CONFIG_USERNAME);
   String http_config_password = get("http_config_password", HTTP_CONFIG_PASSWORD);
 
-  if (console) {
-    console->log(Console::INFO, F("Checking for config update via HTTP from %s"), http_config_url.c_str());
-  }
+  log(Console::INFO, F("Checking for config update via HTTP from %s"), http_config_url.c_str());
 
   // Allocate JSON documents for request and response
   DynamicJsonDocument requestHeader(256);  // Headers with version info and last_updated
@@ -317,31 +314,23 @@ bool Config::performHttpConfigUpdate(const String& firmwareVersion, Console* con
       if (saveConfig(json)) {
         result = true;
         saved = true;
-        if (console) {
-          console->log(Console::INFO, F("Successfully updated config via HTTP from %s"), http_config_url.c_str());
-        }
+          log(Console::INFO, F("Successfully updated config via HTTP from %s"), http_config_url.c_str());
       } else {
-        if (console) {
-          console->log(Console::ERROR, F("Failed to save config"));
-        }
+          log(Console::ERROR, F("Failed to save config"));
       }
       break;
     }
       
     case HTTP_CODE_NOT_MODIFIED:
     case HTTP_CODE_NO_CONTENT:
-      if (console) {
-        console->log(Console::INFO, F("No Config Update available via HTTP"));
-      }
+      log(Console::INFO, F("No Config Update available via HTTP"));
       result = true;
       break;
       
     default:
-      if (console) {
-        console->log(Console::ERROR, F("HTTP request %s failed with code: %d"), http_config_url.c_str(), httpCode);
-        if (configJsonDoc.containsKey("message")) {
-          console->log(Console::ERROR, F("message: %s"), configJsonDoc["message"].as<String>().c_str());
-        }
+      log(Console::ERROR, F("HTTP request %s failed with code: %d"), http_config_url.c_str(), httpCode);
+      if (configJsonDoc.containsKey("message")) {
+        log(Console::ERROR, F("message: %s"), configJsonDoc["message"].as<String>().c_str());
       }
   }
 
