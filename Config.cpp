@@ -3,6 +3,7 @@
 #include "features.h"
 // library
 #include <LittleFS.h>
+#include <time.h>
 // project
 #include "Console.h"
 
@@ -163,6 +164,78 @@ void Config::handleOTAServerClient() {
 }
 #endif // JSON_CONFIG_OTA
 
+void Config::listFiles()
+{
+  Dir dir = LittleFS.openDir("/");
+  bool any = false;
+  log(Console::DEBUG, F("LittleFS files:"));
+  while (dir.next()) {
+    any = true;
+    File file = dir.openFile("r");
+    if (file) {
+      char timeStr[32];
+      time_t lw = file.getLastWrite();
+      struct tm *tmstruct = localtime(&lw);
+      strftime(timeStr, sizeof(timeStr), "%Y-%m-%d %H:%M:%S", tmstruct);
+      log(Console::DEBUG, F("  %s size=%d lastWrite=%s"), dir.fileName().c_str(), (int)file.size(), timeStr);
+      file.close();
+    }
+  }
+  if (!any) {
+    log(Console::WARNING, F("LittleFS empty, formatting..."));
+    LittleFS.end();
+    if (LittleFS.format()) {
+      log(Console::INFO, F("LittleFS formatted"));
+    } else {
+      log(Console::ERROR, F("LittleFS format failed"));
+    }
+    if (!LittleFS.begin()) {
+      log(Console::ERROR, F("LittleFS mount failed after format"));
+    }
+
+    File test = LittleFS.open("/fs_test.txt", "w");
+    if (test) {
+      const size_t testLen = 1600;
+      char *testData = (char*)malloc(testLen + 1);
+      if (testData) {
+        memset(testData, 'X', testLen);
+        testData[testLen] = '\0';
+        size_t written = test.print(testData);
+        free(testData);
+        test.close();
+        File test2 = LittleFS.open("/fs_test.txt", "r");
+        if (test2) {
+          size_t readLen = test2.size();
+          char *readBack = (char*)malloc(readLen + 1);
+          if (readBack) {
+            size_t r = test2.read((uint8_t*)readBack, readLen);
+            readBack[r] = '\0';
+            test2.close();
+            LittleFS.remove("/fs_test.txt");
+            if (r == testLen && memcmp(readBack, testData, testLen) == 0) {
+              log(Console::INFO, F("LittleFS write test: PASS (%d bytes)"), (int)testLen);
+            } else {
+              log(Console::ERROR, F("LittleFS write test: FAIL expected=%d read=%d"), (int)testLen, (int)r);
+            }
+            free(readBack);
+          } else {
+            test2.close();
+            LittleFS.remove("/fs_test.txt");
+            log(Console::ERROR, F("LittleFS read back malloc failed"));
+          }
+        } else {
+          log(Console::ERROR, F("LittleFS read back failed"));
+        }
+      } else {
+        test.close();
+        log(Console::ERROR, F("LittleFS test malloc failed"));
+      }
+    } else {
+      log(Console::ERROR, F("LittleFS test write failed"));
+    }
+  }
+}
+
 bool Config::saveConfig(const String& json)
 {
   log(Console::DEBUG, F("saveConfig: json length=%d"), (int)json.length());
@@ -171,36 +244,36 @@ bool Config::saveConfig(const String& json)
   LittleFS.info(fs_info);
   log(Console::DEBUG, F("LittleFS: total=%d, used=%d, block=%d"), (int)fs_info.totalBytes, (int)fs_info.usedBytes, (int)fs_info.blockSize);
 
+  listFiles();
+
   // 1. Write the raw JSON directly to a temporary file.
   if (LittleFS.exists(JSON_CONFIG_OTA_TMP_FILE)) {
     LittleFS.remove(JSON_CONFIG_OTA_TMP_FILE);
   }
 
-  File tmpFile = LittleFS.open(JSON_CONFIG_OTA_TMP_FILE, "w");
+  File   tmpFile = LittleFS.open(JSON_CONFIG_OTA_TMP_FILE, "w");
   if (!tmpFile)
   {
     log(Console::ERROR, F("saveConfig: failed to open temp file for writing"));
     return false;
   }
 
-  const uint8_t *data = reinterpret_cast<const uint8_t *>(json.c_str());
-  size_t expected = json.length();
-
-  size_t written = tmpFile.write(data, expected);
-
-  if (written != expected) {
-    log(Console::ERROR,
-          F("saveConfig: write() wrote %d bytes, expected %d"),
-          (int)written,
-          (int)expected
-      );
-    tmpFile.close();
-    LittleFS.remove(JSON_CONFIG_OTA_TMP_FILE);
-    return false;
-  }
+  size_t written = tmpFile.print(json);
 
   tmpFile.flush();
   tmpFile.close();
+
+  log(Console::DEBUG, F("saveConfig: written=%d"), (int)written);
+
+  if (written != json.length()) {
+    log(Console::ERROR,
+          F("saveConfig: write() wrote %d bytes, expected %d"),
+          (int)written,
+          (int)json.length()
+      );
+    LittleFS.remove(JSON_CONFIG_OTA_TMP_FILE);
+    return false;
+  }
 
   // 2. Verify the exact number of bytes were written to the temporary file.
   File tmpCheck = LittleFS.open(JSON_CONFIG_OTA_TMP_FILE, "r");
@@ -210,10 +283,13 @@ bool Config::saveConfig(const String& json)
       tmpCheck.close();
     }
     log(Console::ERROR, F("saveConfig: temp file size %d, expected %d bytes"), actualSize, (int)json.length());
+    listFiles();
     LittleFS.remove(JSON_CONFIG_OTA_TMP_FILE);
     return false;
   }
   tmpCheck.close();
+
+  listFiles();
 
   // 3. Verify the temporary file is complete and valid before touching the original.
   if (!readConfig(JSON_CONFIG_OTA_TMP_FILE)) {

@@ -61,7 +61,7 @@ protected:
     void handleOTAServerRequest();
 #endif // JSON_CONFIG_OTA
     bool readConfig(const char *path = nullptr);
-
+    void listFiles();
 };
 
 #endif // CONFIG_H
